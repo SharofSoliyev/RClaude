@@ -20,10 +20,9 @@ RClaude runs the Claude Code CLI as a subprocess, streams responses in real-time
 ## Requirements
 
 - macOS or Linux
-- [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) VS Code extension (with active subscription)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (with active subscription)
 - Telegram bot token from [@BotFather](https://t.me/BotFather)
-
-.NET SDK 8+ is installed automatically if not present.
+- .NET SDK 8+ (installed automatically if not present)
 
 ## Installation
 
@@ -74,6 +73,39 @@ rclaude config    # View settings
 3. Claude reads/writes files, runs commands in your project folder
 4. Responses stream back to Telegram in real-time
 
+## Project Structure
+
+```
+src/RClaude/
+├── Claude/
+│   ├── ClaudeCliService.cs     # Runs Claude CLI subprocess, streams output
+│   ├── StreamJsonParser.cs     # Parses stream-json events from Claude
+│   ├── StreamEvent.cs          # Stream event models
+│   └── ClaudeResult.cs         # Final result model
+├── Telegram/
+│   ├── TelegramHostedService.cs  # Background service, bot lifecycle
+│   ├── UpdateHandler.cs          # Handles incoming Telegram updates
+│   ├── CommandHandler.cs         # Handles slash commands
+│   └── MessageFormatter.cs       # Formats messages for Telegram
+├── Session/
+│   ├── SessionStore.cs           # SQLite-based session persistence
+│   └── UserSession.cs            # Session model
+├── Configuration/                # App settings and config models
+├── Data/                         # Database context
+├── Program.cs                    # Entry point, DI setup
+└── appsettings.json
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | .NET 8 |
+| Bot framework | Telegram.Bot |
+| Database | SQLite + EF Core |
+| AI backend | Claude Code CLI |
+| Installer | Bash |
+
 ## Update
 
 Run `./install.sh` again — select "Update" to rebuild without losing settings.
@@ -93,7 +125,7 @@ rm -rf ~/.rclaude
 
 **Telegram orqali Claude Code AI Agent**
 
-Claude Code subscription ingizni Telegram orqali ishlating — xuddi VS Code extensiondek, lekin istalgan joydan.
+Claude Code subscriptioningizni Telegram orqali ishlating — xuddi VS Code extensiondek, lekin istalgan joydan.
 
 RClaude Claude Code CLI ni subprocess sifatida ishga tushiradi, javoblarni real-time Telegram chatga uzatadi, va bir nechta sessiyalarni doimiy saqlash bilan boshqaradi.
 
@@ -111,10 +143,9 @@ RClaude Claude Code CLI ni subprocess sifatida ishga tushiradi, javoblarni real-
 ## Talablar
 
 - macOS yoki Linux
-- [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) VS Code extension (faol subscription bilan)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (faol subscription bilan)
 - [@BotFather](https://t.me/BotFather) dan Telegram bot token
-
-.NET SDK 8+ yo'q bo'lsa avtomatik o'rnatiladi.
+- .NET SDK 8+ (yo'q bo'lsa avtomatik o'rnatiladi)
 
 ## O'rnatish
 
@@ -131,7 +162,9 @@ chmod +x install.sh
 rclaude start     # Background da ishga tushirish
 rclaude stop      # To'xtatish
 rclaude restart   # Qayta ishga tushirish
-rclaude logs      # Loglarni ko'rish
+rclaude status    # Holat tekshirish
+rclaude logs      # Loglarni ko'rish (real-time)
+rclaude run       # Foreground da ishga tushirish
 rclaude config    # Sozlamalarni ko'rish
 ```
 
@@ -142,6 +175,43 @@ rclaude config    # Sozlamalarni ko'rish
 | `/newsession <nom>` | Yangi sessiya yaratish |
 | `/setdir <path>` | Ishchi papka belgilash |
 | `/session` | Sessiya tanlash (inline keyboard) |
+| `/sessions` | Barcha sessiyalarni ko'rish |
+| `/renamesession <nom>` | Joriy sessiyani qayta nomlash |
+| `/deletesession` | Sessiyani o'chirish |
+| `/getdir` | Sessiya ma'lumotlarini ko'rish |
 | `/clear` | Kontekstni tozalash |
 | `/model <nom>` | Model o'zgartirish (sonnet/opus/haiku) |
 | `/help` | Barcha buyruqlar |
+
+## Loyiha Tuzilmasi
+
+```
+src/RClaude/
+├── Claude/
+│   ├── ClaudeCliService.cs     # Claude CLI ni subprocess sifatida ishlatadi
+│   ├── StreamJsonParser.cs     # stream-json eventlarini parse qiladi
+│   ├── StreamEvent.cs          # Stream event modellari
+│   └── ClaudeResult.cs         # Natija modeli
+├── Telegram/
+│   ├── TelegramHostedService.cs  # Bot lifecycle boshqaruvi
+│   ├── UpdateHandler.cs          # Telegram updatelarini qayta ishlash
+│   ├── CommandHandler.cs         # Slash commandlarni qayta ishlash
+│   └── MessageFormatter.cs       # Xabarlarni formatlash
+├── Session/
+│   ├── SessionStore.cs           # SQLite asosida sessiya saqlash
+│   └── UserSession.cs            # Sessiya modeli
+├── Configuration/                # Sozlamalar
+├── Data/                         # Database context
+├── Program.cs                    # Entry point, DI setup
+└── appsettings.json
+```
+
+## Texnologiyalar
+
+| Qatlam | Texnologiya |
+|--------|-------------|
+| Runtime | .NET 8 |
+| Bot framework | Telegram.Bot |
+| Database | SQLite + EF Core |
+| AI backend | Claude Code CLI |
+| Installer | Bash |
