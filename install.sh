@@ -277,6 +277,11 @@ if [ "$MODE" = "uninstall" ]; then
     rm -rf "$INSTALL_DIR"
     echo -e "  ${GREEN}✓${NC} $MSG_DIR_REMOVED"
 
+    # Remove symlink if exists
+    if [ -L "/usr/local/bin/$BINARY_NAME" ]; then
+        rm -f "/usr/local/bin/$BINARY_NAME" 2>/dev/null || true
+    fi
+
     SHELL_RC=""
     [ -f "$HOME/.zshrc" ] && SHELL_RC="$HOME/.zshrc"
     [ -z "$SHELL_RC" ] && [ -f "$HOME/.bashrc" ] && SHELL_RC="$HOME/.bashrc"
@@ -603,19 +608,27 @@ LAUNCHER
 
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-# Add to PATH
+# ─── Add to PATH ──────────────────────────────────
+# Strategy 1: symlink to /usr/local/bin (works immediately, no source needed)
+SYMLINK_CREATED=false
+if ln -sf "$INSTALL_DIR/$BINARY_NAME" "/usr/local/bin/$BINARY_NAME" 2>/dev/null; then
+    SYMLINK_CREATED=true
+    echo -e "  ${GREEN}✓${NC} $MSG_PATH_ADDED: /usr/local/bin/$BINARY_NAME"
+fi
+
+# Strategy 2: add to shell rc as fallback
 SHELL_RC=""
 [ -f "$HOME/.zshrc" ] && SHELL_RC="$HOME/.zshrc"
 [ -z "$SHELL_RC" ] && [ -f "$HOME/.bashrc" ] && SHELL_RC="$HOME/.bashrc"
 
 PATH_LINE='export PATH="$HOME/.rclaude:$PATH"'
-if [ -n "$SHELL_RC" ] && ! grep -q ".rclaude" "$SHELL_RC" 2>/dev/null; then
+if [ -n "$SHELL_RC" ] && ! grep -q "\.rclaude" "$SHELL_RC" 2>/dev/null; then
     echo "" >> "$SHELL_RC"
     echo "# RClaude" >> "$SHELL_RC"
     echo "$PATH_LINE" >> "$SHELL_RC"
-    echo -e "  ${GREEN}✓${NC} $MSG_PATH_ADDED ($SHELL_RC)"
 fi
 
+# Strategy 3: export for current shell session
 export PATH="$INSTALL_DIR:$PATH"
 echo -e "  ${GREEN}✓${NC} $MSG_LAUNCHER_CREATED"
 
@@ -655,7 +668,7 @@ echo -e "    /session           — Switch session"
 echo -e "    /help              — All commands"
 echo ""
 
-if [ -n "$SHELL_RC" ] && ! echo "$PATH" | grep -q ".rclaude"; then
+if [ "$SYMLINK_CREATED" = false ] && [ -n "$SHELL_RC" ] && ! echo "$PATH" | grep -q ".rclaude"; then
     echo -e "  ${YELLOW}$MSG_NEW_TERMINAL${NC}"
     echo -e "    source $SHELL_RC"
     echo ""
