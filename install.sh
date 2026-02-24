@@ -495,6 +495,7 @@ INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:model', 'sonnet');
 INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:max_timeout', '600');
 SQLEOF
         echo -e "  ${GREEN}✓${NC} $MSG_SETTINGS_SAVED"
+    fi
 else
     # Upgrade — only update Claude CLI path
     if [ "$DB_PROVIDER" = "sqlite" ] && command -v sqlite3 &> /dev/null && [ -f "$INSTALL_DIR/rclaude.db" ]; then
