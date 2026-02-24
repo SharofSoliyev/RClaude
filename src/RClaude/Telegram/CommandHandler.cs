@@ -114,21 +114,27 @@ public class CommandHandler
                 var requestId = parts[2];
                 var allowed = decision == "allow";
 
-                _permissionService.Respond(requestId, allowed);
-
                 var statusText = allowed ? "✅ Ruxsat berildi" : "❌ Rad etildi";
-                await bot.AnswerCallbackQuery(callback.Id, statusText, cancellationToken: ct);
 
-                // Update the message to show the decision
+                // Update message in-place: show status, remove buttons
                 try
                 {
-                    var originalText = callback.Message?.Text ?? "";
+                    var originalHtml = _permissionService.GetMessageHtml(requestId)
+                        ?? Esc(callback.Message?.Text ?? "");
+
                     await bot.EditMessageText(
                         chatId, callback.Message!.MessageId,
-                        $"{originalText}\n\n<b>{statusText}</b>",
-                        parseMode: ParseMode.Html, cancellationToken: ct);
+                        $"{originalHtml}\n\n<b>{statusText}</b>",
+                        parseMode: ParseMode.Html,
+                        replyMarkup: new InlineKeyboardMarkup(Array.Empty<InlineKeyboardButton[]>()),
+                        cancellationToken: ct);
                 }
                 catch { }
+
+                await bot.AnswerCallbackQuery(callback.Id, statusText, cancellationToken: ct);
+
+                // Respond to permission service AFTER UI update
+                _permissionService.Respond(requestId, allowed);
             }
             return;
         }

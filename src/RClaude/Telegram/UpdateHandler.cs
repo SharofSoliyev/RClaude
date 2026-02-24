@@ -223,6 +223,9 @@ public class UpdateHandler
             InlineKeyboardButton.WithCallbackData("❌ Rad etish", $"perm:deny:{request.RequestId}")
         });
 
+        // Store original HTML so callback handler can reuse it
+        _permissionService.StoreMessageHtml(request.RequestId, text);
+
         try
         {
             await bot.SendMessage(request.ChatId, text,

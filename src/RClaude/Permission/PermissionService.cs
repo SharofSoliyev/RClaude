@@ -13,6 +13,7 @@ public class PermissionService : IDisposable
     private readonly ILogger<PermissionService> _logger;
     private readonly HttpListener _listener;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pending = new();
+    private readonly ConcurrentDictionary<string, string> _messageHtml = new();
     private CancellationTokenSource? _cts;
 
     private static readonly TimeSpan PermissionTimeout = TimeSpan.FromSeconds(120);
@@ -51,6 +52,21 @@ public class PermissionService : IDisposable
             tcs.TrySetResult(allow);
             _logger.LogInformation("Permission {RequestId}: {Decision}", requestId, allow ? "allowed" : "denied");
         }
+        _messageHtml.TryRemove(requestId, out _);
+    }
+
+    /// <summary>
+    /// Store the original HTML message for a permission request so callback can reuse it.
+    /// </summary>
+    public void StoreMessageHtml(string requestId, string html) => _messageHtml[requestId] = html;
+
+    /// <summary>
+    /// Retrieve and remove the stored HTML for a permission request.
+    /// </summary>
+    public string? GetMessageHtml(string requestId)
+    {
+        _messageHtml.TryRemove(requestId, out var html);
+        return html;
     }
 
     private async Task ListenLoop(CancellationToken ct)

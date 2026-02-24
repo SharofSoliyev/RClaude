@@ -57,16 +57,23 @@ public class TelegramHostedService : BackgroundService
         };
 
         bot.StartReceiving(
-            updateHandler: async (client, update, ct) =>
+            updateHandler: (client, update, ct) =>
             {
-                try
+                // Fire-and-forget: har bir update parallel ishlanadi.
+                // Bu deadlock'ni oldini oladi — Claude CLI permission kutayotganda
+                // callback query (button press) bloklanmaydi.
+                _ = Task.Run(async () =>
                 {
-                    await _handler.HandleUpdateAsync(client, update, ct);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Update handling xatosi");
-                }
+                    try
+                    {
+                        await _handler.HandleUpdateAsync(client, update, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Update handling xatosi");
+                    }
+                });
+                return Task.CompletedTask;
             },
             errorHandler: async (client, exception, source, ct) =>
             {
