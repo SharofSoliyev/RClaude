@@ -1,0 +1,33 @@
+# Build output
+bin/
+obj/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime
+*.log
+*.pid
+nohup.out
+
+# Environment
+.env
+.env.*
+appsettings.Production.json
+appsettings.Local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OS
+*.swp
+*~
