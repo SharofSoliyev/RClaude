@@ -1,6 +1,10 @@
-# RClaude
+<p align="center">
+  <img src="logo.png" alt="RClaude Logo" width="500">
+</p>
 
-**Claude Code AI Agent via Telegram**
+<h1 align="center">RClaude</h1>
+
+<p align="center"><strong>Claude Code AI Agent via Telegram</strong></p>
 
 Use your Claude Code subscription through Telegram — just like the VS Code extension, but from anywhere.
 
@@ -121,9 +125,13 @@ rm -rf ~/.rclaude
 
 ---
 
-# RClaude
+<p align="center">
+  <img src="logo.png" alt="RClaude Logo" width="500">
+</p>
 
-**Telegram orqali Claude Code AI Agent**
+<h1 align="center">RClaude</h1>
+
+<p align="center"><strong>Telegram orqali Claude Code AI Agent</strong></p>
 
 Claude Code subscriptioningizni Telegram orqali ishlating — xuddi VS Code extensiondek, lekin istalgan joydan.
 
