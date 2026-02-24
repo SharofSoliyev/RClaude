@@ -28,7 +28,7 @@ RClaude runs the Claude Code CLI as a subprocess, streams responses in real-time
 ## Installation
 
 ```bash
-git clone https://github.com/user/rclaude.git
+git clone https://github.com/SharofSoliyev/rclaude.git
 cd rclaude
 chmod +x install.sh
 ./install.sh
@@ -119,7 +119,7 @@ RClaude Claude Code CLI ni subprocess sifatida ishga tushiradi, javoblarni real-
 ## O'rnatish
 
 ```bash
-git clone https://github.com/user/rclaude.git
+git clone https://github.com/SharofSoliyev/rclaude.git
 cd rclaude
 chmod +x install.sh
 ./install.sh
