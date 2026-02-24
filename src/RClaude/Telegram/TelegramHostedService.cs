@@ -47,6 +47,9 @@ public class TelegramHostedService : BackgroundService
             return;
         }
 
+        // Register permission handler so it can send buttons via this bot
+        _handler.RegisterPermissionHandler(bot);
+
         var receiverOptions = new ReceiverOptions
         {
             AllowedUpdates = [UpdateType.Message, UpdateType.CallbackQuery],

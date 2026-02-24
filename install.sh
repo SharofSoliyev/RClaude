@@ -102,6 +102,9 @@ case "$LANG_CHOICE" in
         MSG_CONFIG="Settings"
         MSG_TG_COMMANDS="Telegram commands"
         MSG_NEW_TERMINAL="Open a new terminal or run:"
+        MSG_PERM_SELECT="Permission mode"
+        MSG_PERM_FULL="Full Access (all tools auto-approved)"
+        MSG_PERM_ASK="Ask Permission (Bash/Write/Edit require approval via Telegram)"
         ;;
     3)
         MSG_CHECKING="Проверка..."
@@ -170,6 +173,9 @@ case "$LANG_CHOICE" in
         MSG_CONFIG="Настройки"
         MSG_TG_COMMANDS="Команды Telegram"
         MSG_NEW_TERMINAL="Откройте новый терминал или выполните:"
+        MSG_PERM_SELECT="Режим разрешений"
+        MSG_PERM_FULL="Полный доступ (все инструменты авто-одобрены)"
+        MSG_PERM_ASK="Запрашивать (Bash/Write/Edit требуют одобрения через Telegram)"
         ;;
     *)
         MSG_CHECKING="Tekshirilmoqda..."
@@ -238,6 +244,9 @@ case "$LANG_CHOICE" in
         MSG_CONFIG="Sozlamalar"
         MSG_TG_COMMANDS="Telegram buyruqlari"
         MSG_NEW_TERMINAL="Yangi terminal oching yoki:"
+        MSG_PERM_SELECT="Ruxsat rejimi"
+        MSG_PERM_FULL="To'liq kirish (barcha toollar avtomatik ruxsat)"
+        MSG_PERM_ASK="So'rash (Bash/Write/Edit uchun Telegram orqali ruxsat so'raydi)"
         ;;
 esac
 
@@ -395,6 +404,20 @@ else
     echo ""
     read -p "  $MSG_TG_USER_PROMPT: " TG_USERNAME
 
+    # Permission mode
+    echo ""
+    echo -e "  ${YELLOW}$MSG_PERM_SELECT:${NC}"
+    echo -e "  ${GREEN}1${NC}) $MSG_PERM_FULL"
+    echo -e "  ${GREEN}2${NC}) $MSG_PERM_ASK"
+    echo ""
+    read -p "  [1]: " PERM_CHOICE
+    PERM_CHOICE=${PERM_CHOICE:-1}
+
+    case "$PERM_CHOICE" in
+        2) PERMISSION_MODE="ask" ;;
+        *) PERMISSION_MODE="full" ;;
+    esac
+
     DB_PROVIDER="sqlite"
     DB_CONNECTION="Data Source=$INSTALL_DIR/rclaude.db"
 fi
@@ -498,6 +521,7 @@ INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram:allowed_user_ids'
 INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:cli_path', '$CLAUDE_BIN');
 INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:model', 'sonnet');
 INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:max_timeout', '600');
+INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:permission_mode', '$PERMISSION_MODE');
 SQLEOF
         echo -e "  ${GREEN}✓${NC} $MSG_SETTINGS_SAVED"
     fi

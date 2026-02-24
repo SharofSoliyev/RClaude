@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Options;
 using RClaude.Configuration;
+using RClaude.Permission;
 using RClaude.Session;
 
 namespace RClaude.Claude;
@@ -9,13 +10,16 @@ namespace RClaude.Claude;
 public class ClaudeCliService
 {
     private readonly ClaudeSettings _claudeSettings;
+    private readonly PermissionService _permissionService;
     private readonly ILogger<ClaudeCliService> _logger;
 
     public ClaudeCliService(
         IOptions<ClaudeSettings> claudeSettings,
+        PermissionService permissionService,
         ILogger<ClaudeCliService> logger)
     {
         _claudeSettings = claudeSettings.Value;
+        _permissionService = permissionService;
         _logger = logger;
     }
 
@@ -26,6 +30,7 @@ public class ClaudeCliService
     public async Task<ClaudeResult> SendMessageAsync(
         string message,
         UserSession session,
+        long chatId,
         Func<StreamEvent, Task>? onEvent = null,
         CancellationToken ct = default)
     {
@@ -38,13 +43,9 @@ public class ClaudeCliService
             };
         }
 
-        var args = BuildArguments(message, session);
-        _logger.LogInformation("Claude CLI: {Args}", args);
-
         var psi = new ProcessStartInfo
         {
             FileName = _claudeSettings.CliBinaryPath,
-            Arguments = args,
             WorkingDirectory = session.WorkingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -55,9 +56,19 @@ public class ClaudeCliService
             StandardErrorEncoding = Encoding.UTF8
         };
 
+        // ArgumentList — har bir argument alohida uzatiladi, shell injection imkonsiz
+        BuildArgumentList(psi.ArgumentList, message, session);
+        _logger.LogInformation("Claude CLI: {Binary} with {ArgCount} args", _claudeSettings.CliBinaryPath, psi.ArgumentList.Count);
+
         // Remove CLAUDECODE env var to prevent "nested session" error
         psi.Environment.Remove("CLAUDECODE");
         psi.Environment.Remove("CLAUDE_CODE_ENTRYPOINT");
+
+        // Permission service env vars — hook script reads these
+        psi.Environment["RCLAUDE_PERMISSION_PORT"] = _permissionService.Port.ToString();
+        psi.Environment["RCLAUDE_USER_ID"] = session.TelegramUserId.ToString();
+        psi.Environment["RCLAUDE_CHAT_ID"] = chatId.ToString();
+        psi.Environment["RCLAUDE_PERMISSION_MODE"] = _claudeSettings.PermissionMode;
 
         using var process = new Process { StartInfo = psi };
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -162,26 +173,40 @@ public class ClaudeCliService
         }
     }
 
-    private string BuildArguments(string message, UserSession session)
+    private static readonly HashSet<string> ValidModels = new(StringComparer.OrdinalIgnoreCase)
     {
-        var sb = new StringBuilder();
+        "sonnet", "opus", "haiku",
+        "claude-sonnet-4-5-20250514", "claude-opus-4-5-20250514",
+        "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"
+    };
 
-        sb.Append("-p ");
+    private static readonly System.Text.RegularExpressions.Regex SessionIdPattern =
+        new(@"^[a-zA-Z0-9\-_]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
-        var escapedMessage = message
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"");
-        sb.Append($"\"{escapedMessage}\" ");
+    private void BuildArgumentList(IList<string> args, string message, UserSession session)
+    {
+        // -p <message> — xabar to'g'ridan-to'g'ri argument sifatida, shell parsing yo'q
+        args.Add("-p");
+        args.Add(message);
 
-        sb.Append("--output-format stream-json --verbose ");
-        sb.Append("--dangerously-skip-permissions ");
+        args.Add("--output-format");
+        args.Add("stream-json");
 
+        args.Add("--verbose");
+
+        // Model validatsiyasi — faqat ruxsat etilgan nomlar
         var model = session.Model ?? _claudeSettings.Model;
-        sb.Append($"--model {model} ");
+        if (!ValidModels.Contains(model))
+            model = "sonnet";
+        args.Add("--model");
+        args.Add(model);
 
-        if (!string.IsNullOrEmpty(session.ClaudeSessionId))
-            sb.Append($"--resume {session.ClaudeSessionId} ");
-
-        return sb.ToString().Trim();
+        // Session ID validatsiyasi — faqat alphanumeric, dash, underscore
+        if (!string.IsNullOrEmpty(session.ClaudeSessionId)
+            && SessionIdPattern.IsMatch(session.ClaudeSessionId))
+        {
+            args.Add("--resume");
+            args.Add(session.ClaudeSessionId);
+        }
     }
 }

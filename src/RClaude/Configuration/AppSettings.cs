@@ -12,7 +12,12 @@ public class ClaudeSettings
     public string CliBinaryPath { get; set; } = "claude";
     public string Model { get; set; } = "sonnet";
     public int MaxTimeoutSeconds { get; set; } = 600;
-    public string PermissionMode { get; set; } = "bypassPermissions";
+
+    /// <summary>
+    /// "full" — barcha toollar avtomatik ruxsat (xuddi eski --dangerously-skip-permissions)
+    /// "ask"  — xavfli toollar uchun Telegram button orqali so'raydi
+    /// </summary>
+    public string PermissionMode { get; set; } = "ask";
 }
 
 public class AgentSettings

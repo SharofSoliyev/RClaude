@@ -1,4 +1,5 @@
 using RClaude.Data;
+using RClaude.Permission;
 using RClaude.Session;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -11,15 +12,18 @@ public class CommandHandler
 {
     private readonly SessionStore _sessionStore;
     private readonly SessionRepository _repo;
+    private readonly PermissionService _permissionService;
     private readonly ILogger<CommandHandler> _logger;
 
     public CommandHandler(
         SessionStore sessionStore,
         SessionRepository repo,
+        PermissionService permissionService,
         ILogger<CommandHandler> logger)
     {
         _sessionStore = sessionStore;
         _repo = repo;
+        _permissionService = permissionService;
         _logger = logger;
     }
 
@@ -89,7 +93,7 @@ public class CommandHandler
     }
 
     /// <summary>
-    /// Handle callback query from inline keyboard (session switch).
+    /// Handle callback query from inline keyboard (session switch + permission).
     /// </summary>
     public async Task HandleCallbackAsync(
         ITelegramBotClient bot, CallbackQuery callback, CancellationToken ct)
@@ -99,6 +103,35 @@ public class CommandHandler
         var chatId = callback.Message?.Chat.Id ?? 0;
 
         if (data == null || chatId == 0) return;
+
+        // Permission callbacks: perm:allow:{requestId} or perm:deny:{requestId}
+        if (data.StartsWith("perm:"))
+        {
+            var parts = data.Split(':', 3);
+            if (parts.Length == 3)
+            {
+                var decision = parts[1]; // "allow" or "deny"
+                var requestId = parts[2];
+                var allowed = decision == "allow";
+
+                _permissionService.Respond(requestId, allowed);
+
+                var statusText = allowed ? "✅ Ruxsat berildi" : "❌ Rad etildi";
+                await bot.AnswerCallbackQuery(callback.Id, statusText, cancellationToken: ct);
+
+                // Update the message to show the decision
+                try
+                {
+                    var originalText = callback.Message?.Text ?? "";
+                    await bot.EditMessageText(
+                        chatId, callback.Message!.MessageId,
+                        $"{originalText}\n\n<b>{statusText}</b>",
+                        parseMode: ParseMode.Html, cancellationToken: ct);
+                }
+                catch { }
+            }
+            return;
+        }
 
         if (data.StartsWith("switch:"))
         {

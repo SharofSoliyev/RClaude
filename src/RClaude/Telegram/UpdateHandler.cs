@@ -1,11 +1,14 @@
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using RClaude.Claude;
 using RClaude.Configuration;
+using RClaude.Permission;
 using RClaude.Session;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace RClaude.Telegram;
 
@@ -15,6 +18,7 @@ public class UpdateHandler
     private readonly ClaudeCliService _claudeService;
     private readonly SessionStore _sessionStore;
     private readonly MessageFormatter _formatter;
+    private readonly PermissionService _permissionService;
     private readonly TelegramSettings _telegramSettings;
     private readonly ILogger<UpdateHandler> _logger;
 
@@ -26,6 +30,7 @@ public class UpdateHandler
         ClaudeCliService claudeService,
         SessionStore sessionStore,
         MessageFormatter formatter,
+        PermissionService permissionService,
         IOptions<TelegramSettings> telegramSettings,
         ILogger<UpdateHandler> logger)
     {
@@ -33,8 +38,21 @@ public class UpdateHandler
         _claudeService = claudeService;
         _sessionStore = sessionStore;
         _formatter = formatter;
+        _permissionService = permissionService;
         _telegramSettings = telegramSettings.Value;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Register the permission event handler with a bot reference.
+    /// Called once when TelegramHostedService starts.
+    /// </summary>
+    public void RegisterPermissionHandler(ITelegramBotClient bot)
+    {
+        _permissionService.OnPermissionRequested += async (request) =>
+        {
+            await SendPermissionButtons(bot, request);
+        };
     }
 
     public async Task HandleUpdateAsync(
@@ -129,7 +147,7 @@ public class UpdateHandler
         var lastEditTime = DateTime.MinValue;
 
         var result = await _claudeService.SendMessageAsync(
-            text, session,
+            text, session, chatId,
             onEvent: async (streamEvent) =>
             {
                 switch (streamEvent)
@@ -191,7 +209,73 @@ public class UpdateHandler
         }
     }
 
-    private static string GetToolEmoji(string toolName) => toolName switch
+    private async Task SendPermissionButtons(ITelegramBotClient bot, PermissionRequest request)
+    {
+        var emoji = GetToolEmoji(request.ToolName);
+        var detail = ExtractToolDetail(request);
+
+        var text = $"{emoji} <b>{Esc(request.ToolName)}</b> ishlatmoqchi:\n"
+                 + $"<code>{Esc(detail)}</code>";
+
+        var keyboard = new InlineKeyboardMarkup(new[]
+        {
+            InlineKeyboardButton.WithCallbackData("✅ Ruxsat berish", $"perm:allow:{request.RequestId}"),
+            InlineKeyboardButton.WithCallbackData("❌ Rad etish", $"perm:deny:{request.RequestId}")
+        });
+
+        try
+        {
+            await bot.SendMessage(request.ChatId, text,
+                parseMode: ParseMode.Html,
+                replyMarkup: keyboard);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send permission buttons for {RequestId}", request.RequestId);
+        }
+    }
+
+    private static string ExtractToolDetail(PermissionRequest request)
+    {
+        if (request.ToolInput == null)
+            return request.ToolName;
+
+        try
+        {
+            JsonElement input;
+            if (request.ToolInput is JsonElement je)
+                input = je;
+            else
+                input = JsonSerializer.Deserialize<JsonElement>(
+                    JsonSerializer.Serialize(request.ToolInput));
+
+            return request.ToolName switch
+            {
+                "Bash" or "bash" =>
+                    input.TryGetProperty("command", out var cmd) ? cmd.GetString() ?? "?"
+                    : input.TryGetProperty("tool_input", out var ti)
+                        && ti.TryGetProperty("command", out var cmd2) ? cmd2.GetString() ?? "?" : "?",
+
+                "Write" or "write_file" =>
+                    input.TryGetProperty("file_path", out var fp) ? $"📄 {fp.GetString()}"
+                    : input.TryGetProperty("tool_input", out var ti2)
+                        && ti2.TryGetProperty("file_path", out var fp2) ? $"📄 {fp2.GetString()}" : "?",
+
+                "Edit" or "edit_file" =>
+                    input.TryGetProperty("file_path", out var ep) ? $"📄 {ep.GetString()}"
+                    : input.TryGetProperty("tool_input", out var ti3)
+                        && ti3.TryGetProperty("file_path", out var ep2) ? $"📄 {ep2.GetString()}" : "?",
+
+                _ => request.ToolName
+            };
+        }
+        catch
+        {
+            return request.ToolName;
+        }
+    }
+
+    public static string GetToolEmoji(string toolName) => toolName switch
     {
         "Read" or "read_file" => "📖",
         "Write" or "write_file" => "✍️",
@@ -277,4 +361,7 @@ public class UpdateHandler
 
         return false;
     }
+
+    private static string Esc(string text) =>
+        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 }

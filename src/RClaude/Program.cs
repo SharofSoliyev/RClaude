@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using RClaude.Claude;
 using RClaude.Configuration;
 using RClaude.Data;
+using RClaude.Permission;
 using RClaude.Session;
 using RClaude.Telegram;
 
@@ -50,6 +51,7 @@ builder.Services.Configure<ClaudeSettings>(opts =>
 {
     opts.CliBinaryPath = allSettings.GetValueOrDefault("claude:cli_path", "claude");
     opts.Model = allSettings.GetValueOrDefault("claude:model", "sonnet");
+    opts.PermissionMode = allSettings.GetValueOrDefault("claude:permission_mode", "ask");
 
     if (int.TryParse(allSettings.GetValueOrDefault("claude:max_timeout", "600"), out var timeout))
         opts.MaxTimeoutSeconds = timeout;
@@ -67,6 +69,9 @@ builder.Services.AddSingleton<SessionRepository>();
 // Session
 builder.Services.AddSingleton<SessionStore>();
 
+// Permission
+builder.Services.AddSingleton<PermissionService>();
+
 // Claude
 builder.Services.AddSingleton<ClaudeCliService>();
 
@@ -77,4 +82,10 @@ builder.Services.AddSingleton<UpdateHandler>();
 builder.Services.AddHostedService<TelegramHostedService>();
 
 var host = builder.Build();
+
+// Start permission service and ensure hook script exists
+var permissionService = host.Services.GetRequiredService<PermissionService>();
+permissionService.Start();
+PermissionHookSetup.EnsureHookScript();
+
 host.Run();
