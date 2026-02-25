@@ -19,6 +19,7 @@ public class UpdateHandler
     private readonly SessionStore _sessionStore;
     private readonly MessageFormatter _formatter;
     private readonly PermissionService _permissionService;
+    private readonly BotMessages _msg;
     private readonly TelegramSettings _telegramSettings;
     private readonly ILogger<UpdateHandler> _logger;
 
@@ -31,6 +32,7 @@ public class UpdateHandler
         SessionStore sessionStore,
         MessageFormatter formatter,
         PermissionService permissionService,
+        BotMessages msg,
         IOptions<TelegramSettings> telegramSettings,
         ILogger<UpdateHandler> logger)
     {
@@ -39,6 +41,7 @@ public class UpdateHandler
         _sessionStore = sessionStore;
         _formatter = formatter;
         _permissionService = permissionService;
+        _msg = msg;
         _telegramSettings = telegramSettings.Value;
         _logger = logger;
     }
@@ -76,8 +79,7 @@ public class UpdateHandler
         {
             _logger.LogWarning("Unauthorized: {UserId} (@{Username})",
                 userId, message.From?.Username);
-            await bot.SendMessage(chatId,
-                "Ruxsat berilmagan. Administrator bilan bog'laning.",
+            await bot.SendMessage(chatId, _msg.Unauthorized,
                 cancellationToken: ct);
             return;
         }
@@ -87,8 +89,7 @@ public class UpdateHandler
             var handled = await _commandHandler.HandleAsync(bot, message, ct);
             if (handled) return;
 
-            await bot.SendMessage(chatId,
-                "Noma'lum buyruq. /help ni ko'ring.",
+            await bot.SendMessage(chatId, _msg.UnknownCommand,
                 cancellationToken: ct);
             return;
         }
@@ -98,8 +99,7 @@ public class UpdateHandler
 
         if (session.WorkingDirectory == null)
         {
-            await bot.SendMessage(chatId,
-                "Avval folder belgilang:\n/setdir /path/to/project\n\nYoki yangi sessiya: /newsession &lt;nom&gt;",
+            await bot.SendMessage(chatId, _msg.SetDirFirst,
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -108,8 +108,7 @@ public class UpdateHandler
         var userLock = _sessionStore.GetLock(userId);
         if (!await userLock.WaitAsync(0, ct))
         {
-            await bot.SendMessage(chatId,
-                "Oldingi so'rov hali bajarilmoqda. Iltimos kuting...",
+            await bot.SendMessage(chatId, _msg.RequestInProgress,
                 cancellationToken: ct);
             return;
         }
@@ -125,7 +124,7 @@ public class UpdateHandler
         {
             _logger.LogError(ex, "Error from {UserId}", userId);
             await bot.SendMessage(chatId,
-                $"Xatolik yuz berdi: {ex.Message}", cancellationToken: ct);
+                $"{_msg.ErrorOccurred}: {ex.Message}", cancellationToken: ct);
         }
         finally
         {
@@ -138,7 +137,7 @@ public class UpdateHandler
         UserSession session, CancellationToken ct)
     {
         var liveMsg = await bot.SendMessage(chatId,
-            $"⏳ <i>O'ylamoqda... [{session.SessionName}]</i>",
+            $"⏳ <i>{_msg.Thinking} [{session.SessionName}]</i>",
             parseMode: ParseMode.Html, cancellationToken: ct);
 
         var liveMessageId = liveMsg.MessageId;
@@ -170,7 +169,7 @@ public class UpdateHandler
                         if (DateTime.UtcNow - lastEditTime >= EditInterval)
                         {
                             var toolStatus = GetToolEmoji(tool.ToolName)
-                                + " <i>" + tool.ToolName + " ishlatilmoqda...</i>";
+                                + " <i>" + tool.ToolName + " " + _msg.PermToolRunning + "</i>";
 
                             var display = accumulatedText.Length > 0
                                 ? MessageFormatter.ConvertMarkdownToHtml(
@@ -191,7 +190,7 @@ public class UpdateHandler
             : accumulatedText.ToString();
 
         if (string.IsNullOrWhiteSpace(finalText))
-            finalText = "(bo'sh javob)";
+            finalText = _msg.EmptyResponse;
 
         var footer = BuildFooter(result);
 
@@ -214,13 +213,13 @@ public class UpdateHandler
         var emoji = GetToolEmoji(request.ToolName);
         var detail = ExtractToolDetail(request);
 
-        var text = $"{emoji} <b>{Esc(request.ToolName)}</b> ishlatmoqchi:\n"
+        var text = $"{emoji} <b>{Esc(request.ToolName)}</b> {_msg.PermWantsToUse}:\n"
                  + $"<code>{Esc(detail)}</code>";
 
         var keyboard = new InlineKeyboardMarkup(new[]
         {
-            InlineKeyboardButton.WithCallbackData("✅ Ruxsat berish", $"perm:allow:{request.RequestId}"),
-            InlineKeyboardButton.WithCallbackData("❌ Rad etish", $"perm:deny:{request.RequestId}")
+            InlineKeyboardButton.WithCallbackData(_msg.PermBtnAllow, $"perm:allow:{request.RequestId}"),
+            InlineKeyboardButton.WithCallbackData(_msg.PermBtnDeny, $"perm:deny:{request.RequestId}")
         });
 
         // Store original HTML so callback handler can reuse it

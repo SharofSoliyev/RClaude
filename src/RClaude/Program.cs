@@ -70,6 +70,10 @@ builder.Services.Configure<AgentSettings>(opts =>
     opts.DefaultWorkingDirectory = allSettings.GetValueOrDefault("agent:default_dir", "");
 });
 
+// i18n — Bot messages in selected language
+var botLang = allSettings.GetValueOrDefault("bot:language", "uz");
+builder.Services.AddSingleton(BotMessages.Create(botLang));
+
 // Data
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<SessionRepository>();
@@ -163,6 +167,10 @@ static async Task InitializeDatabase(string[] args)
         await repo.SetAsync("claude:max_timeout", "600");
         await repo.SetAsync("claude:permission_mode",
             string.IsNullOrEmpty(permissionMode) ? "ask" : permissionMode);
+
+        var language = GetArg("--language");
+        await repo.SetAsync("bot:language",
+            string.IsNullOrEmpty(language) ? "uz" : language);
     }
 
     Console.WriteLine("Database initialized successfully.");

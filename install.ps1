@@ -512,13 +512,21 @@ if ($MODE -ne "upgrade") {
 
     Write-Host "  $($msg.DB_CREATING)"
 
+    # Map language choice to code
+    switch ($LANG_CHOICE) {
+        "2" { $BOT_LANG = "en" }
+        "3" { $BOT_LANG = "ru" }
+        default { $BOT_LANG = "uz" }
+    }
+
     $initArgs = @(
         "$INSTALL_DIR\app\RClaude.dll",
         "--init-db",
         "--bot-token", $BOT_TOKEN,
         "--username", $TG_USERNAME,
         "--claude-path", $CLAUDE_BIN,
-        "--permission-mode", $PERMISSION_MODE
+        "--permission-mode", $PERMISSION_MODE,
+        "--language", $BOT_LANG
     )
     dotnet @initArgs 2>$null
     Write-Host "  [OK] $($msg.SETTINGS_SAVED)" -ForegroundColor Green

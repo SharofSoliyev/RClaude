@@ -11,15 +11,18 @@ public class ClaudeCliService
 {
     private readonly ClaudeSettings _claudeSettings;
     private readonly PermissionService _permissionService;
+    private readonly BotMessages _msg;
     private readonly ILogger<ClaudeCliService> _logger;
 
     public ClaudeCliService(
         IOptions<ClaudeSettings> claudeSettings,
         PermissionService permissionService,
+        BotMessages msg,
         ILogger<ClaudeCliService> logger)
     {
         _claudeSettings = claudeSettings.Value;
         _permissionService = permissionService;
+        _msg = msg;
         _logger = logger;
     }
 
@@ -38,7 +41,7 @@ public class ClaudeCliService
         {
             return new ClaudeResult
             {
-                Text = "Working directory belgilanmagan. /setdir buyrug'ini ishlating.",
+                Text = _msg.NoWorkingDir,
                 IsError = true
             };
         }
@@ -138,7 +141,7 @@ public class ClaudeCliService
 
             if (process.ExitCode != 0 && string.IsNullOrEmpty(result.Text))
             {
-                result.Text = $"Claude CLI xatosi (exit code {process.ExitCode}):\n{error}";
+                result.Text = $"{_msg.CliError} (exit code {process.ExitCode}):\n{error}";
                 result.IsError = true;
             }
 
@@ -158,7 +161,7 @@ public class ClaudeCliService
 
             return new ClaudeResult
             {
-                Text = $"So'rov vaqti tugadi ({_claudeSettings.MaxTimeoutSeconds} soniya).",
+                Text = $"{_msg.Timeout} ({_claudeSettings.MaxTimeoutSeconds}s)",
                 IsError = true
             };
         }
@@ -167,7 +170,7 @@ public class ClaudeCliService
             _logger.LogError(ex, "Claude CLI xatolik");
             return new ClaudeResult
             {
-                Text = $"Xatolik: {ex.Message}",
+                Text = $"{_msg.GenericError}: {ex.Message}",
                 IsError = true
             };
         }

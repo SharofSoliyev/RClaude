@@ -550,11 +550,19 @@ if [ "$MODE" != "upgrade" ]; then
         USERNAMES_JSON="[]"
     fi
 
+    # Map language choice to code
+    case "$LANG_CHOICE" in
+        2) BOT_LANG="en" ;;
+        3) BOT_LANG="ru" ;;
+        *) BOT_LANG="uz" ;;
+    esac
+
     dotnet "$INSTALL_DIR/app/RClaude.dll" --init-db \
         --bot-token "$BOT_TOKEN" \
         --username "$TG_USERNAME" \
         --claude-path "$CLAUDE_BIN" \
-        --permission-mode "$PERMISSION_MODE"
+        --permission-mode "$PERMISSION_MODE" \
+        --language "$BOT_LANG"
     echo -e "  ${GREEN}✓${NC} $MSG_SETTINGS_SAVED"
 else
     # Upgrade — only update Claude CLI path

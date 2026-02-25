@@ -1,3 +1,4 @@
+using RClaude.Configuration;
 using RClaude.Data;
 using RClaude.Permission;
 using RClaude.Session;
@@ -13,17 +14,20 @@ public class CommandHandler
     private readonly SessionStore _sessionStore;
     private readonly SessionRepository _repo;
     private readonly PermissionService _permissionService;
+    private readonly BotMessages _msg;
     private readonly ILogger<CommandHandler> _logger;
 
     public CommandHandler(
         SessionStore sessionStore,
         SessionRepository repo,
         PermissionService permissionService,
+        BotMessages msg,
         ILogger<CommandHandler> logger)
     {
         _sessionStore = sessionStore;
         _repo = repo;
         _permissionService = permissionService;
+        _msg = msg;
         _logger = logger;
     }
 
@@ -114,7 +118,7 @@ public class CommandHandler
                 var requestId = parts[2];
                 var allowed = decision == "allow";
 
-                var statusText = allowed ? "✅ Ruxsat berildi" : "❌ Rad etildi";
+                var statusText = allowed ? _msg.PermAllowed : _msg.PermDenied;
 
                 // Update message in-place: show status, remove buttons
                 try
@@ -148,14 +152,14 @@ public class CommandHandler
                 var session = await _repo.GetActiveSession(userId);
 
                 var name = session?.Name ?? "?";
-                var dir = session?.WorkingDirectory ?? "belgilanmagan";
+                var dir = session?.WorkingDirectory ?? _msg.FolderNotSet;
 
                 await bot.AnswerCallbackQuery(callback.Id,
-                    $"Sessiya: {name}", cancellationToken: ct);
+                    $"{_msg.SessionSwitched}: {name}", cancellationToken: ct);
 
                 await bot.EditMessageText(
                     chatId, callback.Message!.MessageId,
-                    $"Sessiya almashtirildi: <b>{Esc(name)}</b>\nFolder: <code>{Esc(dir)}</code>",
+                    $"{_msg.SessionSwitched}: <b>{Esc(name)}</b>\nFolder: <code>{Esc(dir)}</code>",
                     parseMode: ParseMode.Html, cancellationToken: ct);
             }
         }
@@ -163,55 +167,18 @@ public class CommandHandler
 
     // ─── Commands ───────────────────────────────────────
 
-    private static async Task HandleStart(
+    private async Task HandleStart(
         ITelegramBotClient bot, long chatId, CancellationToken ct)
     {
-        await bot.SendMessage(chatId, """
-            <b>RClaude — Claude Code Agent</b>
-
-            Telegram orqali kodlash yordamchisi!
-            Xuddi VS Code extensiondek ishlaydi.
-
-            <b>Sessiya buyruqlari:</b>
-            /session — Sessiya tanlash (inline keyboard)
-            /sessions — Barcha sessiyalar ro'yxati
-            /newsession &lt;nom&gt; — Yangi sessiya yaratish
-            /renamesession &lt;nom&gt; — Sessiya nomini o'zgartirish
-            /deletesession — Hozirgi sessiyani o'chirish
-
-            <b>Ish buyruqlari:</b>
-            /setdir &lt;path&gt; — Folder belgilash
-            /getdir — Hozirgi ma'lumotlar
-            /clear — Suhbatni tozalash
-            /model &lt;name&gt; — Model (sonnet/opus/haiku)
-            /help — Yordam
-
-            Boshlash: /newsession MyProject → /setdir /path → xabar yozing!
-            """, parseMode: ParseMode.Html, cancellationToken: ct);
+        await bot.SendMessage(chatId, _msg.StartMessage,
+            parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
-    private static async Task HandleHelp(
+    private async Task HandleHelp(
         ITelegramBotClient bot, long chatId, CancellationToken ct)
     {
-        await bot.SendMessage(chatId, """
-            <b>RClaude Buyruqlar:</b>
-
-            <b>Sessiyalar:</b>
-            /session — Sessiya tanlash (button)
-            /sessions — Barcha sessiyalar ro'yxati
-            /newsession &lt;nom&gt; — Yangi sessiya
-            /renamesession &lt;nom&gt; — Nom o'zgartirish
-            /deletesession — Sessiya o'chirish
-
-            <b>Ishlash:</b>
-            /setdir &lt;path&gt; — Folder belgilash
-            /getdir — Hozirgi sessiya ma'lumotlari
-            /clear — Context tozalash
-            /model &lt;name&gt; — sonnet, opus, haiku
-
-            <b>Qanday ishlaydi:</b>
-            Xabar yuboring — Claude Code fayllarni o'qiydi, yozadi, tahrirlaydi, shell buyruqlar bajaradi.
-            """, parseMode: ParseMode.Html, cancellationToken: ct);
+        await bot.SendMessage(chatId, _msg.HelpMessage,
+            parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
     private async Task HandleSessionPicker(
@@ -221,8 +188,7 @@ public class CommandHandler
 
         if (sessions.Count == 0)
         {
-            await bot.SendMessage(chatId,
-                "Sessiyalar yo'q. /newsession &lt;nom&gt; bilan yarating.",
+            await bot.SendMessage(chatId, _msg.NoSessions,
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -236,7 +202,7 @@ public class CommandHandler
         var keyboard = new InlineKeyboardMarkup(buttons);
 
         await bot.SendMessage(chatId,
-            "<b>Sessiya tanlang:</b>",
+            $"<b>{Esc(_msg.PickSession)}</b>",
             parseMode: ParseMode.Html,
             replyMarkup: keyboard,
             cancellationToken: ct);
@@ -249,8 +215,7 @@ public class CommandHandler
 
         if (sessions.Count == 0)
         {
-            await bot.SendMessage(chatId,
-                "Sessiyalar yo'q. /newsession &lt;nom&gt; bilan yarating.",
+            await bot.SendMessage(chatId, _msg.NoSessions,
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -258,12 +223,12 @@ public class CommandHandler
         var lines = sessions.Select(s =>
         {
             var marker = s.IsActive ? "✅" : "📁";
-            var dir = s.WorkingDirectory ?? "folder belgilanmagan";
+            var dir = s.WorkingDirectory ?? _msg.FolderNotSet;
             return $"{marker} <b>{Esc(s.Name)}</b>\n   <code>{Esc(dir)}</code>\n   Model: {s.Model} | ID: {s.Id}";
         });
 
         await bot.SendMessage(chatId,
-            "<b>Sessiyalar:</b>\n\n" + string.Join("\n\n", lines),
+            $"<b>{Esc(_msg.SessionsTitle)}</b>\n\n" + string.Join("\n\n", lines),
             parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
@@ -272,8 +237,7 @@ public class CommandHandler
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            await bot.SendMessage(chatId,
-                "Foydalanish: /newsession &lt;nom&gt;\nMasalan: /newsession Wordy Backend",
+            await bot.SendMessage(chatId, _msg.NewSessionUsage,
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -284,7 +248,7 @@ public class CommandHandler
             userId, session.Name, session.Id);
 
         await bot.SendMessage(chatId,
-            $"Yangi sessiya yaratildi: <b>{Esc(session.Name)}</b>\n\nEndi /setdir bilan folder belgilang.",
+            $"{_msg.NewSessionCreated}: <b>{Esc(session.Name)}</b>\n\n{_msg.SetDirNow}",
             parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
@@ -293,8 +257,7 @@ public class CommandHandler
     {
         if (string.IsNullOrWhiteSpace(newName))
         {
-            await bot.SendMessage(chatId,
-                "Foydalanish: /renamesession &lt;yangi nom&gt;",
+            await bot.SendMessage(chatId, _msg.RenameUsage,
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -302,7 +265,7 @@ public class CommandHandler
         var active = await _repo.GetActiveSession(userId);
         if (active == null)
         {
-            await bot.SendMessage(chatId, "Active sessiya yo'q.", cancellationToken: ct);
+            await bot.SendMessage(chatId, _msg.NoActiveSession, cancellationToken: ct);
             return;
         }
 
@@ -310,7 +273,7 @@ public class CommandHandler
         await _repo.UpdateSessionFields(active.Id, e => e.Name = newName.Trim());
 
         await bot.SendMessage(chatId,
-            $"Sessiya nomi o'zgartirildi:\n<b>{Esc(oldName)}</b> → <b>{Esc(newName.Trim())}</b>",
+            $"{_msg.SessionRenamed}:\n<b>{Esc(oldName)}</b> → <b>{Esc(newName.Trim())}</b>",
             parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
@@ -320,7 +283,7 @@ public class CommandHandler
         var active = await _repo.GetActiveSession(userId);
         if (active == null)
         {
-            await bot.SendMessage(chatId, "O'chirish uchun sessiya yo'q.", cancellationToken: ct);
+            await bot.SendMessage(chatId, _msg.NoSessionToDelete, cancellationToken: ct);
             return;
         }
 
@@ -328,13 +291,13 @@ public class CommandHandler
         await _repo.DeleteSession(active.Id);
 
         var newActive = await _repo.GetActiveSession(userId);
-        var msg = $"Sessiya o'chirildi: <b>{Esc(name)}</b>";
+        var text = $"{_msg.SessionDeleted}: <b>{Esc(name)}</b>";
         if (newActive != null)
-            msg += $"\n\nHozirgi sessiya: <b>{Esc(newActive.Name)}</b>";
+            text += $"\n\n{_msg.CurrentSession}: <b>{Esc(newActive.Name)}</b>";
         else
-            msg += "\n\nSessiyalar qolmadi. /newsession bilan yarating.";
+            text += $"\n\n{_msg.NoSessionsLeft}";
 
-        await bot.SendMessage(chatId, msg,
+        await bot.SendMessage(chatId, text,
             parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
@@ -343,8 +306,7 @@ public class CommandHandler
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            await bot.SendMessage(chatId,
-                "Foydalanish: /setdir /path/to/project", cancellationToken: ct);
+            await bot.SendMessage(chatId, _msg.SetDirUsage, cancellationToken: ct);
             return;
         }
 
@@ -353,7 +315,7 @@ public class CommandHandler
         if (!Directory.Exists(fullPath))
         {
             await bot.SendMessage(chatId,
-                $"Papka topilmadi: <code>{Esc(fullPath)}</code>",
+                $"{_msg.FolderNotFound}: <code>{Esc(fullPath)}</code>",
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -385,13 +347,12 @@ public class CommandHandler
 
         if (active == null)
         {
-            await bot.SendMessage(chatId,
-                "Active sessiya yo'q. /newsession bilan yarating.",
+            await bot.SendMessage(chatId, _msg.NoActiveSession,
                 cancellationToken: ct);
             return;
         }
 
-        var dir = active.WorkingDirectory ?? "belgilanmagan";
+        var dir = active.WorkingDirectory ?? _msg.FolderNotSet;
         await bot.SendMessage(chatId,
             $"Sessiya: <b>{Esc(active.Name)}</b>\nFolder: <code>{Esc(dir)}</code>\nModel: <b>{active.Model}</b>",
             parseMode: ParseMode.Html, cancellationToken: ct);
@@ -402,8 +363,7 @@ public class CommandHandler
     {
         await _sessionStore.ClearSessionAsync(userId);
 
-        await bot.SendMessage(chatId,
-            "Context tozalandi. Yangi suhbat boshlandi.",
+        await bot.SendMessage(chatId, _msg.ContextCleared,
             cancellationToken: ct);
     }
 
@@ -412,8 +372,7 @@ public class CommandHandler
     {
         if (string.IsNullOrWhiteSpace(modelName))
         {
-            await bot.SendMessage(chatId,
-                "Foydalanish: /model &lt;name&gt;\n\nMavjud: <b>sonnet</b>, <b>opus</b>, <b>haiku</b>",
+            await bot.SendMessage(chatId, _msg.ModelUsage,
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -424,7 +383,7 @@ public class CommandHandler
         if (!validModels.Contains(model))
         {
             await bot.SendMessage(chatId,
-                $"Noto'g'ri model: <code>{Esc(model)}</code>\nMavjud: <b>sonnet</b>, <b>opus</b>, <b>haiku</b>",
+                $"{_msg.InvalidModel}: <code>{Esc(model)}</code>",
                 parseMode: ParseMode.Html, cancellationToken: ct);
             return;
         }
@@ -434,7 +393,7 @@ public class CommandHandler
             await _repo.UpdateSessionFields(active.Id, e => e.Model = model);
 
         await bot.SendMessage(chatId,
-            $"Model o'zgartirildi: <b>{model}</b>",
+            $"{_msg.ModelChanged}: <b>{model}</b>",
             parseMode: ParseMode.Html, cancellationToken: ct);
     }
 
