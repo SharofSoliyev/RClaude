@@ -1,0 +1,77 @@
+name: Bug Report
+description: Report a bug
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Run '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+      placeholder: Describe what you expected...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: Which OS are you using?
+      options:
+        - macOS
+        - Linux Ubuntu/Debian
+        - Linux Other
+        - Windows 10
+        - Windows 11
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet-sdk-version
+    attributes:
+      label: .NET SDK Version
+      description: Output of `dotnet --version`.
+      placeholder: "8.0.100"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: permission-mode
+    attributes:
+      label: Permission Mode
+      description: Which permission mode are you using?
+      options:
+        - Full Access
+        - Ask Permission
+    validations:
+      required: false
+
+  - type: textarea
+    id: relevant-logs
+    attributes:
+      label: Relevant Logs
+      description: Paste any relevant log output.
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,29 @@
+# Top-most EditorConfig file
+root = true
+
+# Default settings for all files
+[*]
+indent_style = space
+indent_size = 4
+charset = utf-8
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# C# files
+[*.cs]
+dotnet_style_namespace_declarations = file_scoped:suggestion
+dotnet_sort_system_directives_first = true
+csharp_new_line_before_open_brace = all
+
+# JSON and YAML files
+[*.{json,yml,yaml}]
+indent_size = 2
+
+# PowerShell and CMD scripts
+[*.{ps1,cmd}]
+end_of_line = crlf
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false

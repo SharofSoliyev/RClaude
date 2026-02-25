@@ -14,11 +14,18 @@
   <a href="#ornatish">O'zbekcha</a>
 </p>
 
----
+<p align="center">
+  <a href="https://github.com/SharofSoliyev/RClaude/actions/workflows/build.yml"><img src="https://github.com/SharofSoliyev/RClaude/actions/workflows/build.yml/badge.svg" alt="Build"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-8.0-purple.svg" alt=".NET"></a>
+  <a href="https://core.telegram.org/bots"><img src="https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram" alt="Telegram Bot"></a>
+</p>
 
 Use your Claude Code subscription through Telegram — just like the VS Code extension, but from anywhere.
 
 RClaude runs the Claude Code CLI as a subprocess, streams responses in real-time to your Telegram chat, and manages multiple sessions with persistent storage.
+
+---
 
 ## Features
 
@@ -31,6 +38,25 @@ RClaude runs the Claude Code CLI as a subprocess, streams responses in real-time
 - **Security hardened** — no shell injection, model whitelist, session ID validation
 - **Database persistence** — sessions and settings survive restarts (SQLite)
 - **Multi-language** — installer supports Uzbek, English, Russian
+
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│              │     │                  │     │                  │
+│  Telegram    │────▶│  RClaude Bot     │────▶│  Claude Code CLI │
+│  User        │     │  (.NET 8 Worker) │     │  (subprocess)    │
+│              │◀────│                  │◀────│                  │
+│              │     │  • UpdateHandler │     │  • stream-json   │
+└──────────────┘     │  • SessionStore  │     │  • file ops      │
+   Real-time         │  • PermissionSvc │     │  • shell cmds    │
+   streaming         └────────┬─────────┘     └──────────────────┘
+                              │
+                     ┌────────▼─────────┐
+                     │  SQLite Database  │
+                     │  (sessions, cfg)  │
+                     └──────────────────┘
+```
 
 ## Requirements
 
@@ -107,7 +133,7 @@ RClaude has a built-in permission system using [Claude Code Hooks](https://docs.
 | **Full Access** | All tools auto-approved (fastest) |
 | **Ask Permission** | Dangerous tools require approval via Telegram buttons |
 
-In "Ask Permission" mode, safe tools (Read, Glob, Grep, WebSearch) are auto-allowed. Dangerous tools (Bash, Write, Edit) show a Telegram message with the command/file and Allow/Deny buttons:
+In “Ask Permission” mode, safe tools (Read, Glob, Grep, WebSearch) are auto-allowed. Dangerous tools (Bash, Write, Edit) show a Telegram message with the command/file and Allow/Deny buttons:
 
 ```
 💻 Bash ishlatmoqchi:
@@ -122,23 +148,7 @@ npm install
 - Model whitelist validation — only allowed model names accepted
 - Session ID regex validation — only alphanumeric, dash, underscore
 
-## How It Works
-
-```
-User → Telegram → RClaude Bot → Claude Code CLI
-                                      │
-                               Reads/writes files
-                               Runs commands
-                               Streams output
-                                      │
-                               Real-time updates ← Telegram
-```
-
-1. You send a message in Telegram
-2. RClaude passes it to Claude Code CLI (`claude -p "message" --output-format stream-json`)
-3. Claude reads/writes files, runs commands in your project folder
-4. If permission is required — Telegram buttons appear
-5. Responses stream back to Telegram in real-time
+For more details, see [SECURITY.md](SECURITY.md).
 
 ## Project Structure
 
@@ -169,7 +179,7 @@ src/RClaude/
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Runtime | .NET 8 |
 | Bot framework | Telegram.Bot v22 |
 | Database | SQLite + EF Core |
@@ -192,6 +202,14 @@ rm -rf ~/.rclaude
 # Windows (PowerShell)
 Remove-Item -Recurse -Force "$env:USERPROFILE\.rclaude"
 ```
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
