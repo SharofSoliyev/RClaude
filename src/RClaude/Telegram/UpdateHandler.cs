@@ -468,12 +468,20 @@ public class UpdateHandler
                 return;
             }
 
-            // Save to temp file
-            tempFilePath = Path.Combine(Path.GetTempPath(), $"rclaude_audio_{Guid.NewGuid()}.ogg");
+            // Save to temp file with proper extension
+            // Telegram sends voice as OGG Opus, but use .ogg extension for Whisper
+            var extension = file.FilePath.EndsWith(".oga") ? ".oga" : ".ogg";
+            tempFilePath = Path.Combine(Path.GetTempPath(), $"rclaude_audio_{Guid.NewGuid()}{extension}");
+
+            _logger.LogInformation("Downloading audio to: {TempPath}", tempFilePath);
+
             await using (var fileStream = System.IO.File.Create(tempFilePath))
             {
                 await bot.DownloadFile(file.FilePath, fileStream, cancellationToken: ct);
             }
+
+            var fileSize = new FileInfo(tempFilePath).Length;
+            _logger.LogInformation("Downloaded audio file: {Size} bytes", fileSize);
 
             // Transcribe with Whisper
             var transcription = await _whisperService.TranscribeAsync(tempFilePath, ct);

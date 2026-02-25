@@ -69,13 +69,19 @@ public class WhisperService
 
             _logger.LogInformation("Calling Whisper API with file: {FileName}", fileName);
 
-            var result = await audioClient.TranscribeAudioAsync(stream, fileName,
-                new AudioTranscriptionOptions
-                {
-                    // Don't specify language - let Whisper auto-detect for better accuracy
-                    ResponseFormat = AudioTranscriptionFormat.Text,
-                    Temperature = 0.0f // More deterministic
-                });
+            // Use prompt to improve accuracy for Uzbek/Russian/English
+            var options = new AudioTranscriptionOptions
+            {
+                ResponseFormat = AudioTranscriptionFormat.Text,
+                Temperature = 0.0f, // More deterministic
+                // Prompt helps Whisper understand context and improve accuracy
+                // Include common words in expected languages to guide the model
+                Prompt = "Salom, assalomu alaykum, rahmat, iltimos, kerak, qilish, bo'lish, " +
+                         "hello, please, thank you, need, want, code, file, project, " +
+                         "привет, пожалуйста, спасибо, нужно, хочу, код, файл, проект"
+            };
+
+            var result = await audioClient.TranscribeAudioAsync(stream, fileName, options);
 
             var transcription = result.Value.Text?.Trim();
 
