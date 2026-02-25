@@ -61,8 +61,8 @@ switch ($LANG_CHOICE) {
         $msg.TG_TOKEN_EXAMPLE = "(Example: 123456789:AABBccddEEff...)"
         $msg.TG_TOKEN_PROMPT = "Bot Token"
         $msg.TG_TOKEN_EMPTY = "ERROR: Token not provided"
-        $msg.TG_USER_HINT = "Enter your Telegram username for private use."
-        $msg.TG_USER_HINT2 = "Leave empty for public access."
+        $msg.TG_USER_HINT = "Enter your Telegram username (required for security)."
+        $msg.TG_USER_EMPTY = "ERROR: Username is required"
         $msg.TG_USER_PROMPT = "Telegram username (without @)"
         $msg.SETTINGS_KEPT = "Existing settings preserved"
         $msg.BUILDING = "Building..."
@@ -130,8 +130,8 @@ switch ($LANG_CHOICE) {
         $msg.TG_TOKEN_EXAMPLE = "(Пример: 123456789:AABBccddEEff...)"
         $msg.TG_TOKEN_PROMPT = "Токен бота"
         $msg.TG_TOKEN_EMPTY = "ОШИБКА: Токен не введён"
-        $msg.TG_USER_HINT = "Для личного использования введите ваш username Telegram."
-        $msg.TG_USER_HINT2 = "Оставьте пустым для открытого доступа."
+        $msg.TG_USER_HINT = "Введите ваш Telegram username (обязательно для безопасности)."
+        $msg.TG_USER_EMPTY = "ОШИБКА: Username обязателен"
         $msg.TG_USER_PROMPT = "Telegram username (без @)"
         $msg.SETTINGS_KEPT = "Существующие настройки сохранены"
         $msg.BUILDING = "Сборка..."
@@ -199,8 +199,8 @@ switch ($LANG_CHOICE) {
         $msg.TG_TOKEN_EXAMPLE = "(Masalan: 123456789:AABBccddEEff...)"
         $msg.TG_TOKEN_PROMPT = "Bot Token"
         $msg.TG_TOKEN_EMPTY = "XATO: Token kiritilmadi"
-        $msg.TG_USER_HINT = "Faqat o'zingiz ishlatmoqchi bo'lsangiz Telegram username kiriting."
-        $msg.TG_USER_HINT2 = "Hamma uchun ochiq qoldirish uchun bo'sh qoldiring."
+        $msg.TG_USER_HINT = "Telegram username ni kiriting (xavfsizlik uchun majburiy)."
+        $msg.TG_USER_EMPTY = "XATO: Username kiritilmadi"
         $msg.TG_USER_PROMPT = "Telegram username (@siz)"
         $msg.SETTINGS_KEPT = "Mavjud sozlamalar saqlanadi"
         $msg.BUILDING = "Qurilmoqda..."
@@ -426,9 +426,13 @@ if ($MODE -eq "upgrade") {
 
     Write-Host ""
     Write-Host "  $($msg.TG_USER_HINT)"
-    Write-Host "  $($msg.TG_USER_HINT2)"
     Write-Host ""
     $TG_USERNAME = Read-Host "  $($msg.TG_USER_PROMPT)"
+
+    if (-not $TG_USERNAME) {
+        Write-Host "  $($msg.TG_USER_EMPTY)" -ForegroundColor Red
+        exit 1
+    }
 
     # Permission mode
     Write-Host ""

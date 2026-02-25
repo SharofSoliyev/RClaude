@@ -62,9 +62,9 @@ case "$LANG_CHOICE" in
         MSG_TG_TOKEN_EXAMPLE="(Example: 123456789:AABBccddEEff...)"
         MSG_TG_TOKEN_PROMPT="Bot Token"
         MSG_TG_TOKEN_EMPTY="ERROR: Token not provided"
-        MSG_TG_USER_HINT="Enter your Telegram username for private use."
-        MSG_TG_USER_HINT2="Leave empty for public access."
+        MSG_TG_USER_HINT="Enter your Telegram username (required for security)."
         MSG_TG_USER_PROMPT="Telegram username (without @)"
+        MSG_TG_USER_EMPTY="ERROR: Username is required"
         MSG_SETTINGS_KEPT="Existing settings preserved"
         MSG_DB_SELECT="Select database"
         MSG_DB_SQLITE="SQLite (recommended — no setup needed)"
@@ -140,9 +140,9 @@ case "$LANG_CHOICE" in
         MSG_TG_TOKEN_EXAMPLE="(Пример: 123456789:AABBccddEEff...)"
         MSG_TG_TOKEN_PROMPT="Токен бота"
         MSG_TG_TOKEN_EMPTY="ОШИБКА: Токен не введён"
-        MSG_TG_USER_HINT="Для личного использования введите ваш username Telegram."
-        MSG_TG_USER_HINT2="Оставьте пустым для открытого доступа."
+        MSG_TG_USER_HINT="Введите ваш Telegram username (обязательно для безопасности)."
         MSG_TG_USER_PROMPT="Telegram username (без @)"
+        MSG_TG_USER_EMPTY="ОШИБКА: Username обязателен"
         MSG_SETTINGS_KEPT="Существующие настройки сохранены"
         MSG_DB_SELECT="Выберите базу данных"
         MSG_DB_SQLITE="SQLite (рекомендуется — настройка не нужна)"
@@ -218,9 +218,9 @@ case "$LANG_CHOICE" in
         MSG_TG_TOKEN_EXAMPLE="(Masalan: 123456789:AABBccddEEff...)"
         MSG_TG_TOKEN_PROMPT="Bot Token"
         MSG_TG_TOKEN_EMPTY="XATO: Token kiritilmadi"
-        MSG_TG_USER_HINT="Faqat o'zingiz ishlatmoqchi bo'lsangiz Telegram username kiriting."
-        MSG_TG_USER_HINT2="Hamma uchun ochiq qoldirish uchun bo'sh qoldiring."
+        MSG_TG_USER_HINT="Telegram username ni kiriting (xavfsizlik uchun majburiy)."
         MSG_TG_USER_PROMPT="Telegram username (@siz)"
+        MSG_TG_USER_EMPTY="XATO: Username kiritilmadi"
         MSG_SETTINGS_KEPT="Mavjud sozlamalar saqlanadi"
         MSG_DB_SELECT="Database tanlang"
         MSG_DB_SQLITE="SQLite (tavsiya — sozlash kerak emas)"
@@ -454,9 +454,13 @@ else
 
     echo ""
     echo -e "  $MSG_TG_USER_HINT"
-    echo -e "  $MSG_TG_USER_HINT2"
     echo ""
     read -p "  $MSG_TG_USER_PROMPT: " TG_USERNAME
+
+    if [ -z "$TG_USERNAME" ]; then
+        echo -e "${RED}$MSG_TG_USER_EMPTY${NC}"
+        exit 1
+    fi
 
     # Permission mode
     echo ""

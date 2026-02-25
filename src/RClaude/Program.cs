@@ -141,11 +141,19 @@ static async Task InitializeDatabase(string[] args)
         var claudePath = GetArg("--claude-path");
         var permissionMode = GetArg("--permission-mode");
 
-        if (!string.IsNullOrEmpty(botToken))
-            await repo.SetAsync("telegram:bot_token", botToken);
+        if (string.IsNullOrEmpty(botToken))
+        {
+            Console.Error.WriteLine("ERROR: --bot-token is required");
+            Environment.Exit(1);
+        }
+        await repo.SetAsync("telegram:bot_token", botToken);
 
-        var usernames = string.IsNullOrEmpty(username) ? "[]" : $"[\"{username}\"]";
-        await repo.SetAsync("telegram:allowed_usernames", usernames);
+        if (string.IsNullOrEmpty(username))
+        {
+            Console.Error.WriteLine("ERROR: --username is required");
+            Environment.Exit(1);
+        }
+        await repo.SetAsync("telegram:allowed_usernames", $"[\"{username}\"]");
         await repo.SetAsync("telegram:allowed_user_ids", "[]");
 
         if (!string.IsNullOrEmpty(claudePath))
