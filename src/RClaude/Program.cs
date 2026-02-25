@@ -8,6 +8,14 @@ using RClaude.Permission;
 using RClaude.Session;
 using RClaude.Telegram;
 
+// --init-db mode: installer skriptlari uchun DB yaratish va sozlamalar yozish
+// sqlite3 CLI kerak emas — .NET o'zi bajaradi
+if (args.Contains("--init-db"))
+{
+    await InitializeDatabase(args);
+    return;
+}
+
 var builder = Host.CreateApplicationBuilder(args);
 
 // Database — SQLite or PostgreSQL based on config
@@ -89,3 +97,65 @@ permissionService.Start();
 PermissionHookSetup.EnsureHookScript();
 
 host.Run();
+
+// ─── --init-db: DB yaratish va sozlamalar yozish ───
+static async Task InitializeDatabase(string[] args)
+{
+    string GetArg(string name)
+    {
+        var idx = Array.IndexOf(args, name);
+        return idx >= 0 && idx + 1 < args.Length ? args[idx + 1] : "";
+    }
+
+    var installDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".rclaude");
+    var dbPath = Path.Combine(installDir, "rclaude.db");
+
+    Directory.CreateDirectory(installDir);
+
+    var connectionString = $"Data Source={dbPath}";
+    var services = new ServiceCollection();
+    services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite(connectionString));
+    var provider = services.BuildServiceProvider();
+    var factory = provider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+
+    await using (var db = await factory.CreateDbContextAsync())
+    {
+        await db.Database.EnsureCreatedAsync();
+    }
+
+    var repo = new SettingsRepository(factory);
+
+    if (args.Contains("--update-claude-path"))
+    {
+        // Upgrade rejim — faqat Claude CLI yo'lini yangilash
+        var claudePath = GetArg("--claude-path");
+        if (!string.IsNullOrEmpty(claudePath))
+            await repo.SetAsync("claude:cli_path", claudePath);
+    }
+    else
+    {
+        // To'liq o'rnatish
+        var botToken = GetArg("--bot-token");
+        var username = GetArg("--username");
+        var claudePath = GetArg("--claude-path");
+        var permissionMode = GetArg("--permission-mode");
+
+        if (!string.IsNullOrEmpty(botToken))
+            await repo.SetAsync("telegram:bot_token", botToken);
+
+        var usernames = string.IsNullOrEmpty(username) ? "[]" : $"[\"{username}\"]";
+        await repo.SetAsync("telegram:allowed_usernames", usernames);
+        await repo.SetAsync("telegram:allowed_user_ids", "[]");
+
+        if (!string.IsNullOrEmpty(claudePath))
+            await repo.SetAsync("claude:cli_path", claudePath);
+
+        await repo.SetAsync("claude:model", "sonnet");
+        await repo.SetAsync("claude:max_timeout", "600");
+        await repo.SetAsync("claude:permission_mode",
+            string.IsNullOrEmpty(permissionMode) ? "ask" : permissionMode);
+    }
+
+    Console.WriteLine("Database initialized successfully.");
+}

@@ -105,6 +105,13 @@ case "$LANG_CHOICE" in
         MSG_PERM_SELECT="Permission mode"
         MSG_PERM_FULL="Full Access (all tools auto-approved)"
         MSG_PERM_ASK="Ask Permission (Bash/Write/Edit require approval via Telegram)"
+        MSG_CLAUDE_INSTALLING="Claude Code CLI not found. Installing via npm..."
+        MSG_NPM_NOT_FOUND="npm not found! Install Node.js: https://nodejs.org"
+        MSG_NODEJS_INSTALLING="Installing Node.js..."
+        MSG_CLAUDE_INSTALLED="Claude Code installed"
+        MSG_CLAUDE_LOGIN="Log in to your Claude account:"
+        MSG_CLAUDE_INSTALL_FAILED="Claude Code installation failed!"
+        MSG_CLAUDE_INSTALL_MANUAL="Run manually: npm install -g @anthropic-ai/claude-code"
         ;;
     3)
         MSG_CHECKING="Проверка..."
@@ -176,6 +183,13 @@ case "$LANG_CHOICE" in
         MSG_PERM_SELECT="Режим разрешений"
         MSG_PERM_FULL="Полный доступ (все инструменты авто-одобрены)"
         MSG_PERM_ASK="Запрашивать (Bash/Write/Edit требуют одобрения через Telegram)"
+        MSG_CLAUDE_INSTALLING="Claude Code CLI не найден. Установка через npm..."
+        MSG_NPM_NOT_FOUND="npm не найден! Установите Node.js: https://nodejs.org"
+        MSG_NODEJS_INSTALLING="Устанавливаем Node.js..."
+        MSG_CLAUDE_INSTALLED="Claude Code установлен"
+        MSG_CLAUDE_LOGIN="Войдите в аккаунт Claude:"
+        MSG_CLAUDE_INSTALL_FAILED="Не удалось установить Claude Code!"
+        MSG_CLAUDE_INSTALL_MANUAL="Установите вручную: npm install -g @anthropic-ai/claude-code"
         ;;
     *)
         MSG_CHECKING="Tekshirilmoqda..."
@@ -247,6 +261,13 @@ case "$LANG_CHOICE" in
         MSG_PERM_SELECT="Ruxsat rejimi"
         MSG_PERM_FULL="To'liq kirish (barcha toollar avtomatik ruxsat)"
         MSG_PERM_ASK="So'rash (Bash/Write/Edit uchun Telegram orqali ruxsat so'raydi)"
+        MSG_CLAUDE_INSTALLING="Claude Code CLI topilmadi. npm orqali o'rnatilmoqda..."
+        MSG_NPM_NOT_FOUND="npm topilmadi! Node.js ni o'rnating: https://nodejs.org"
+        MSG_NODEJS_INSTALLING="Node.js o'rnatilmoqda..."
+        MSG_CLAUDE_INSTALLED="Claude Code o'rnatildi"
+        MSG_CLAUDE_LOGIN="Claude hisobingizga kiring:"
+        MSG_CLAUDE_INSTALL_FAILED="Claude Code o'rnatib bo'lmadi!"
+        MSG_CLAUDE_INSTALL_MANUAL="Qo'lda o'rnating: npm install -g @anthropic-ai/claude-code"
         ;;
 esac
 
@@ -361,13 +382,46 @@ CLAUDE_BIN=""
 for dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*-darwin-*/resources/native-binary/claude; do
     [ -f "$dir" ] && CLAUDE_BIN="$dir"
 done
+# Linux VS Code extensions
+for dir in "$HOME"/.vscode/extensions/anthropic.claude-code-*-linux-*/resources/native-binary/claude; do
+    [ -f "$dir" ] && CLAUDE_BIN="$dir"
+done
 [ -z "$CLAUDE_BIN" ] && command -v claude &> /dev/null && CLAUDE_BIN=$(which claude)
 
 if [ -z "$CLAUDE_BIN" ]; then
-    echo -e "${RED}$MSG_CLAUDE_NOT_FOUND${NC}"
-    echo "$MSG_CLAUDE_HINT1"
-    echo "$MSG_CLAUDE_HINT2"
-    exit 1
+    echo -e "  ${YELLOW}$MSG_CLAUDE_INSTALLING${NC}"
+
+    # npm tekshirish, yo'q bo'lsa Node.js o'rnatish
+    if ! command -v npm &> /dev/null; then
+        echo -e "  $MSG_NODEJS_INSTALLING"
+        if command -v brew &> /dev/null; then
+            brew install node
+        elif [ -f /etc/debian_version ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq nodejs npm
+        elif [ -f /etc/redhat-release ]; then
+            sudo dnf install -y nodejs npm
+        else
+            echo -e "${RED}$MSG_NPM_NOT_FOUND${NC}"
+            exit 1
+        fi
+    fi
+
+    # Claude Code o'rnatish
+    npm install -g @anthropic-ai/claude-code 2>&1
+
+    if command -v claude &> /dev/null; then
+        CLAUDE_BIN=$(which claude)
+        echo -e "  ${GREEN}✓${NC} $MSG_CLAUDE_INSTALLED: $CLAUDE_BIN"
+
+        # Login so'rash
+        echo ""
+        echo -e "  ${YELLOW}$MSG_CLAUDE_LOGIN${NC}"
+        claude login
+    else
+        echo -e "${RED}$MSG_CLAUDE_INSTALL_FAILED${NC}"
+        echo "$MSG_CLAUDE_INSTALL_MANUAL"
+        exit 1
+    fi
 fi
 echo -e "  ${GREEN}✓${NC} Claude CLI: $CLAUDE_BIN"
 
@@ -492,45 +546,16 @@ if [ "$MODE" != "upgrade" ]; then
         USERNAMES_JSON="[]"
     fi
 
-    if [ "$DB_PROVIDER" = "sqlite" ]; then
-        if ! command -v sqlite3 &> /dev/null; then
-            echo -e "${RED}$MSG_SQLITE3_NOT_FOUND${NC}"
-            exit 1
-        fi
-
-        sqlite3 "$INSTALL_DIR/rclaude.db" << SQLEOF
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    telegram_user_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    working_directory TEXT,
-    claude_session_id TEXT,
-    model TEXT DEFAULT 'sonnet',
-    is_active INTEGER DEFAULT 0,
-    created_at TEXT,
-    updated_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(telegram_user_id);
-INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram:bot_token', '$BOT_TOKEN');
-INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram:allowed_usernames', '$USERNAMES_JSON');
-INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram:allowed_user_ids', '[]');
-INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:cli_path', '$CLAUDE_BIN');
-INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:model', 'sonnet');
-INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:max_timeout', '600');
-INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:permission_mode', '$PERMISSION_MODE');
-SQLEOF
-        echo -e "  ${GREEN}✓${NC} $MSG_SETTINGS_SAVED"
-    fi
+    dotnet "$INSTALL_DIR/app/RClaude.dll" --init-db \
+        --bot-token "$BOT_TOKEN" \
+        --username "$TG_USERNAME" \
+        --claude-path "$CLAUDE_BIN" \
+        --permission-mode "$PERMISSION_MODE"
+    echo -e "  ${GREEN}✓${NC} $MSG_SETTINGS_SAVED"
 else
     # Upgrade — only update Claude CLI path
-    if [ "$DB_PROVIDER" = "sqlite" ] && command -v sqlite3 &> /dev/null && [ -f "$INSTALL_DIR/rclaude.db" ]; then
-        sqlite3 "$INSTALL_DIR/rclaude.db" "INSERT OR REPLACE INTO settings (key, value) VALUES ('claude:cli_path', '$CLAUDE_BIN');"
-        echo -e "  ${GREEN}✓${NC} $MSG_CLAUDE_PATH_UPDATED"
-    fi
+    dotnet "$INSTALL_DIR/app/RClaude.dll" --init-db --update-claude-path --claude-path "$CLAUDE_BIN"
+    echo -e "  ${GREEN}✓${NC} $MSG_CLAUDE_PATH_UPDATED"
 fi
 
 # ─── Create launcher script ──────────────────────

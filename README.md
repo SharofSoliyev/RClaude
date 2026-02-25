@@ -6,42 +6,66 @@
 
 <p align="center"><strong>Claude Code AI Agent via Telegram</strong></p>
 
+<p align="center">
+  <a href="#installation">Install</a> &bull;
+  <a href="#usage">Usage</a> &bull;
+  <a href="#telegram-commands">Commands</a> &bull;
+  <a href="#security">Security</a> &bull;
+  <a href="#ornatish">O'zbekcha</a>
+</p>
+
+---
+
 Use your Claude Code subscription through Telegram — just like the VS Code extension, but from anywhere.
 
 RClaude runs the Claude Code CLI as a subprocess, streams responses in real-time to your Telegram chat, and manages multiple sessions with persistent storage.
-
----
 
 ## Features
 
 - **Real-time streaming** — responses appear live in Telegram with edit updates
 - **Session management** — multiple named sessions, each with its own folder and context
+- **Permission system** — dangerous tools (Bash, Write, Edit) require approval via Telegram buttons, just like VS Code
+- **Cross-platform** — works on macOS, Linux, and Windows
+- **Auto-install** — installer automatically sets up .NET SDK, Node.js, Claude Code CLI, and runs `claude login`
 - **Tool visibility** — see which tools Claude uses (Read, Write, Bash, etc.)
+- **Security hardened** — no shell injection, model whitelist, session ID validation
 - **Database persistence** — sessions and settings survive restarts (SQLite)
-- **Easy installer** — one command setup with auto .NET installation
 - **Multi-language** — installer supports Uzbek, English, Russian
 
 ## Requirements
 
-- macOS or Linux
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (with active subscription)
+- macOS, Linux, or Windows 10+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) subscription (CLI installed automatically if missing)
 - Telegram bot token from [@BotFather](https://t.me/BotFather)
 - .NET SDK 8+ (installed automatically if not present)
 
 ## Installation
 
+### macOS / Linux
+
 ```bash
-git clone https://github.com/SharofSoliyev/rclaude.git
-cd rclaude
+git clone https://github.com/SharofSoliyev/RClaude.git
+cd RClaude
 chmod +x install.sh
 ./install.sh
 ```
 
-The installer will:
-1. Check/install prerequisites (.NET SDK, Claude CLI)
-2. Ask for your Telegram bot token
-3. Build and deploy to `~/.rclaude`
-4. Add `rclaude` command to your PATH
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/SharofSoliyev/RClaude.git
+cd RClaude
+.\install.ps1
+```
+
+### What the installer does
+
+1. Checks/installs prerequisites (.NET SDK, Node.js, Claude Code CLI)
+2. If Claude Code is not installed — installs via `npm` and runs `claude login`
+3. Asks for your Telegram bot token and username
+4. Asks for permission mode (Full Access or Ask Permission)
+5. Builds and deploys to `~/.rclaude`
+6. Adds `rclaude` command to your PATH
 
 ## Usage
 
@@ -54,6 +78,8 @@ rclaude logs      # View logs (real-time)
 rclaude run       # Start in foreground
 rclaude config    # View settings
 ```
+
+On Windows, the same commands work via `rclaude.cmd`.
 
 ## Telegram Commands
 
@@ -70,34 +96,74 @@ rclaude config    # View settings
 | `/model <name>` | Change model (sonnet/opus/haiku) |
 | `/help` | Show all commands |
 
+## Security
+
+### Permission System
+
+RClaude has a built-in permission system using [Claude Code Hooks](https://docs.anthropic.com/en/docs/claude-code/hooks). During installation you choose one of two modes:
+
+| Mode | Behavior |
+|------|----------|
+| **Full Access** | All tools auto-approved (fastest) |
+| **Ask Permission** | Dangerous tools require approval via Telegram buttons |
+
+In "Ask Permission" mode, safe tools (Read, Glob, Grep, WebSearch) are auto-allowed. Dangerous tools (Bash, Write, Edit) show a Telegram message with the command/file and Allow/Deny buttons:
+
+```
+💻 Bash ishlatmoqchi:
+npm install
+
+[✅ Ruxsat berish] [❌ Rad etish]
+```
+
+### Command Injection Protection
+
+- Uses `ProcessStartInfo.ArgumentList` — each argument is passed separately, no shell parsing
+- Model whitelist validation — only allowed model names accepted
+- Session ID regex validation — only alphanumeric, dash, underscore
+
 ## How It Works
 
+```
+User → Telegram → RClaude Bot → Claude Code CLI
+                                      │
+                               Reads/writes files
+                               Runs commands
+                               Streams output
+                                      │
+                               Real-time updates ← Telegram
+```
+
 1. You send a message in Telegram
-2. RClaude passes it to the Claude Code CLI (`claude -p "message" --output-format stream-json`)
+2. RClaude passes it to Claude Code CLI (`claude -p "message" --output-format stream-json`)
 3. Claude reads/writes files, runs commands in your project folder
-4. Responses stream back to Telegram in real-time
+4. If permission is required — Telegram buttons appear
+5. Responses stream back to Telegram in real-time
 
 ## Project Structure
 
 ```
 src/RClaude/
 ├── Claude/
-│   ├── ClaudeCliService.cs     # Runs Claude CLI subprocess, streams output
-│   ├── StreamJsonParser.cs     # Parses stream-json events from Claude
-│   ├── StreamEvent.cs          # Stream event models
-│   └── ClaudeResult.cs         # Final result model
+│   ├── ClaudeCliService.cs       # Runs Claude CLI subprocess, streams output
+│   ├── StreamJsonParser.cs       # Parses stream-json events
+│   ├── StreamEvent.cs            # Stream event models
+│   └── ClaudeResult.cs           # Final result model
 ├── Telegram/
 │   ├── TelegramHostedService.cs  # Background service, bot lifecycle
-│   ├── UpdateHandler.cs          # Handles incoming Telegram updates
-│   ├── CommandHandler.cs         # Handles slash commands
+│   ├── UpdateHandler.cs          # Handles Telegram updates + permission buttons
+│   ├── CommandHandler.cs         # Slash commands + callback handling
 │   └── MessageFormatter.cs       # Formats messages for Telegram
+├── Permission/
+│   ├── PermissionService.cs      # HTTP server for hook communication
+│   ├── PermissionRequest.cs      # Request/response models
+│   └── PermissionHookSetup.cs    # Creates hook scripts (bash/PowerShell)
 ├── Session/
-│   ├── SessionStore.cs           # SQLite-based session persistence
+│   ├── SessionStore.cs           # Session persistence
 │   └── UserSession.cs            # Session model
-├── Configuration/                # App settings and config models
-├── Data/                         # Database context
-├── Program.cs                    # Entry point, DI setup
-└── appsettings.json
+├── Configuration/                # App settings models
+├── Data/                         # EF Core database context
+└── Program.cs                    # Entry point, DI setup, --init-db mode
 ```
 
 ## Tech Stack
@@ -105,121 +171,115 @@ src/RClaude/
 | Layer | Technology |
 |-------|-----------|
 | Runtime | .NET 8 |
-| Bot framework | Telegram.Bot |
+| Bot framework | Telegram.Bot v22 |
 | Database | SQLite + EF Core |
 | AI backend | Claude Code CLI |
-| Installer | Bash |
+| Permission hooks | Bash (Unix) / PowerShell (Windows) |
+| Installer | Bash + PowerShell |
 
 ## Update
 
-Run `./install.sh` again — select "Update" to rebuild without losing settings.
+Run `./install.sh` (or `.\install.ps1` on Windows) again — select **Update** to rebuild without losing settings.
 
 ## Uninstall
 
-Run `./install.sh` — select "Uninstall", or manually:
+Run the installer and select **Uninstall**, or manually:
 
 ```bash
+# macOS/Linux
 rm -rf ~/.rclaude
-# Remove PATH line from ~/.zshrc or ~/.bashrc
+
+# Windows (PowerShell)
+Remove-Item -Recurse -Force "$env:USERPROFILE\.rclaude"
 ```
 
 ---
+
+<h2 id="ornatish">O'zbekcha</h2>
 
 <p align="center">
   <img src="logo.png" alt="RClaude Logo" width="500">
 </p>
 
-<h1 align="center">RClaude</h1>
-
-<p align="center"><strong>Telegram orqali Claude Code AI Agent</strong></p>
+<h3 align="center">Telegram orqali Claude Code AI Agent</h3>
 
 Claude Code subscriptioningizni Telegram orqali ishlating — xuddi VS Code extensiondek, lekin istalgan joydan.
 
-RClaude Claude Code CLI ni subprocess sifatida ishga tushiradi, javoblarni real-time Telegram chatga uzatadi, va bir nechta sessiyalarni doimiy saqlash bilan boshqaradi.
-
----
-
-## Xususiyatlari
+### Xususiyatlari
 
 - **Real-time streaming** — javoblar Telegramda jonli ko'rinadi
-- **Sessiya boshqaruvi** — har biri o'z folder va kontekstiga ega nomli sessiyalar
-- **Tool ko'rinishi** — Claude qaysi asboblarni ishlatayotganini ko'ring (Read, Write, Bash, va h.k.)
-- **Database saqlash** — sessiyalar va sozlamalar restart dan keyin saqlanadi (SQLite)
-- **Oson installer** — bitta buyruq bilan o'rnatish, .NET avtomatik o'rnatiladi
-- **Ko'p tilli** — installer O'zbek, Ingliz, Rus tillarini qo'llab-quvvatlaydi
+- **Sessiya boshqaruvi** — har biri o'z folder va kontekstiga ega
+- **Ruxsat tizimi** — xavfli toollar (Bash, Write, Edit) uchun Telegram button orqali ruxsat so'raydi
+- **Kross-platform** — macOS, Linux va Windows da ishlaydi
+- **Avtomatik o'rnatish** — .NET, Node.js, Claude Code CLI avtomatik o'rnatiladi va `claude login` so'raladi
+- **Xavfsizlik** — command injection himoyasi, model whitelist, session ID validatsiyasi
 
-## Talablar
+### O'rnatish
 
-- macOS yoki Linux
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (faol subscription bilan)
-- [@BotFather](https://t.me/BotFather) dan Telegram bot token
-- .NET SDK 8+ (yo'q bo'lsa avtomatik o'rnatiladi)
-
-## O'rnatish
-
+**macOS / Linux:**
 ```bash
-git clone https://github.com/SharofSoliyev/rclaude.git
-cd rclaude
+git clone https://github.com/SharofSoliyev/RClaude.git
+cd RClaude
 chmod +x install.sh
 ./install.sh
 ```
 
-## Foydalanish
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/SharofSoliyev/RClaude.git
+cd RClaude
+.\install.ps1
+```
+
+Installer quyidagilarni bajaradi:
+1. .NET SDK, Node.js, Claude Code CLI ni tekshiradi — yo'q bo'lsa o'rnatadi
+2. `claude login` ni ishga tushiradi
+3. Bot token va username so'raydi
+4. Ruxsat rejimini tanlashni so'raydi (To'liq kirish yoki So'rash)
+5. `~/.rclaude` ga build qiladi
+6. `rclaude` buyrug'ini PATH ga qo'shadi
+
+### Foydalanish
 
 ```bash
 rclaude start     # Background da ishga tushirish
 rclaude stop      # To'xtatish
 rclaude restart   # Qayta ishga tushirish
 rclaude status    # Holat tekshirish
-rclaude logs      # Loglarni ko'rish (real-time)
+rclaude logs      # Loglarni ko'rish
 rclaude run       # Foreground da ishga tushirish
 rclaude config    # Sozlamalarni ko'rish
 ```
 
-## Telegram Buyruqlari
+### Telegram Buyruqlari
 
 | Buyruq | Tavsif |
 |--------|--------|
 | `/newsession <nom>` | Yangi sessiya yaratish |
 | `/setdir <path>` | Ishchi papka belgilash |
-| `/session` | Sessiya tanlash (inline keyboard) |
-| `/sessions` | Barcha sessiyalarni ko'rish |
-| `/renamesession <nom>` | Joriy sessiyani qayta nomlash |
+| `/session` | Sessiya tanlash |
+| `/sessions` | Barcha sessiyalar |
+| `/renamesession <nom>` | Sessiyani qayta nomlash |
 | `/deletesession` | Sessiyani o'chirish |
-| `/getdir` | Sessiya ma'lumotlarini ko'rish |
+| `/getdir` | Sessiya ma'lumotlari |
 | `/clear` | Kontekstni tozalash |
 | `/model <nom>` | Model o'zgartirish (sonnet/opus/haiku) |
 | `/help` | Barcha buyruqlar |
 
-## Loyiha Tuzilmasi
+### Ruxsat Tizimi
+
+O'rnatish vaqtida ikki rejimdan birini tanlaysiz:
+
+| Rejim | Harakat |
+|-------|---------|
+| **To'liq kirish** | Barcha toollar avtomatik ruxsat |
+| **So'rash** | Xavfli toollar (Bash, Write, Edit) uchun Telegram da button chiqadi |
+
+"So'rash" rejimida xavfsiz toollar (Read, Glob, Grep) avtomatik ruxsat oladi. Xavfli toollar uchun button chiqadi:
 
 ```
-src/RClaude/
-├── Claude/
-│   ├── ClaudeCliService.cs     # Claude CLI ni subprocess sifatida ishlatadi
-│   ├── StreamJsonParser.cs     # stream-json eventlarini parse qiladi
-│   ├── StreamEvent.cs          # Stream event modellari
-│   └── ClaudeResult.cs         # Natija modeli
-├── Telegram/
-│   ├── TelegramHostedService.cs  # Bot lifecycle boshqaruvi
-│   ├── UpdateHandler.cs          # Telegram updatelarini qayta ishlash
-│   ├── CommandHandler.cs         # Slash commandlarni qayta ishlash
-│   └── MessageFormatter.cs       # Xabarlarni formatlash
-├── Session/
-│   ├── SessionStore.cs           # SQLite asosida sessiya saqlash
-│   └── UserSession.cs            # Sessiya modeli
-├── Configuration/                # Sozlamalar
-├── Data/                         # Database context
-├── Program.cs                    # Entry point, DI setup
-└── appsettings.json
+💻 Bash ishlatmoqchi:
+npm install
+
+[✅ Ruxsat berish] [❌ Rad etish]
 ```
-
-## Texnologiyalar
-
-| Qatlam | Texnologiya |
-|--------|-------------|
-| Runtime | .NET 8 |
-| Bot framework | Telegram.Bot |
-| Database | SQLite + EF Core |
-| AI backend | Claude Code CLI |
-| Installer | Bash |
