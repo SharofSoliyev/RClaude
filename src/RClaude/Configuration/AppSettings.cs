@@ -24,3 +24,26 @@ public class AgentSettings
 {
     public string DefaultWorkingDirectory { get; set; } = "";
 }
+
+public class OpenAISettings
+{
+    /// <summary>
+    /// OpenAI API key for Whisper (STT) and GPT (prompt optimization)
+    /// </summary>
+    public string ApiKey { get; set; } = "";
+
+    /// <summary>
+    /// Enable audio message processing (default: true if ApiKey is set)
+    /// </summary>
+    public bool EnableAudioProcessing { get; set; } = true;
+
+    /// <summary>
+    /// Maximum audio duration in seconds (default: 60)
+    /// </summary>
+    public int MaxAudioDurationSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Model for prompt optimization (default: gpt-4o-mini for cost efficiency)
+    /// </summary>
+    public string PromptOptimizationModel { get; set; } = "gpt-4o-mini";
+}

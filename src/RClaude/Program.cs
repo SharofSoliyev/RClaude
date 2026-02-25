@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using RClaude.AudioProcessing;
 using RClaude.Claude;
 using RClaude.Configuration;
 using RClaude.Data;
@@ -70,6 +71,17 @@ builder.Services.Configure<AgentSettings>(opts =>
     opts.DefaultWorkingDirectory = allSettings.GetValueOrDefault("agent:default_dir", "");
 });
 
+builder.Services.Configure<OpenAISettings>(opts =>
+{
+    opts.ApiKey = allSettings.GetValueOrDefault("openai:api_key", "");
+    opts.EnableAudioProcessing = allSettings.GetValueOrDefault("openai:enable_audio", "true") == "true";
+
+    if (int.TryParse(allSettings.GetValueOrDefault("openai:max_audio_duration", "60"), out var duration))
+        opts.MaxAudioDurationSeconds = duration;
+
+    opts.PromptOptimizationModel = allSettings.GetValueOrDefault("openai:optimization_model", "gpt-4o-mini");
+});
+
 // i18n — Bot messages in selected language
 var botLang = allSettings.GetValueOrDefault("bot:language", "uz");
 builder.Services.AddSingleton(BotMessages.Create(botLang));
@@ -86,6 +98,10 @@ builder.Services.AddSingleton<PermissionService>();
 
 // Claude
 builder.Services.AddSingleton<ClaudeCliService>();
+
+// Audio
+builder.Services.AddSingleton<WhisperService>();
+builder.Services.AddSingleton<PromptOptimizer>();
 
 // Telegram
 builder.Services.AddSingleton<MessageFormatter>();
@@ -144,6 +160,7 @@ static async Task InitializeDatabase(string[] args)
         var username = GetArg("--username");
         var claudePath = GetArg("--claude-path");
         var permissionMode = GetArg("--permission-mode");
+        var openaiApiKey = GetArg("--openai-key");
 
         if (string.IsNullOrEmpty(botToken))
         {
@@ -167,6 +184,20 @@ static async Task InitializeDatabase(string[] args)
         await repo.SetAsync("claude:max_timeout", "600");
         await repo.SetAsync("claude:permission_mode",
             string.IsNullOrEmpty(permissionMode) ? "ask" : permissionMode);
+
+        // OpenAI settings
+        if (!string.IsNullOrEmpty(openaiApiKey))
+        {
+            await repo.SetAsync("openai:api_key", openaiApiKey);
+            await repo.SetAsync("openai:enable_audio", "true");
+            await repo.SetAsync("openai:max_audio_duration", "60");
+            await repo.SetAsync("openai:optimization_model", "gpt-4o-mini");
+        }
+        else
+        {
+            await repo.SetAsync("openai:api_key", "");
+            await repo.SetAsync("openai:enable_audio", "false");
+        }
 
         var language = GetArg("--language");
         await repo.SetAsync("bot:language",

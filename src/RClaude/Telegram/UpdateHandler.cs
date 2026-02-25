@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using RClaude.AudioProcessing;
 using RClaude.Claude;
 using RClaude.Configuration;
 using RClaude.Permission;
@@ -19,9 +20,14 @@ public class UpdateHandler
     private readonly SessionStore _sessionStore;
     private readonly MessageFormatter _formatter;
     private readonly PermissionService _permissionService;
+    private readonly WhisperService _whisperService;
+    private readonly PromptOptimizer _promptOptimizer;
     private readonly BotMessages _msg;
     private readonly TelegramSettings _telegramSettings;
     private readonly ILogger<UpdateHandler> _logger;
+
+    // Store pending audio prompts for confirmation
+    private readonly Dictionary<string, string> _pendingAudioPrompts = new();
 
     private static readonly TimeSpan EditInterval = TimeSpan.FromMilliseconds(1200);
     private const int MaxTelegramLength = 4000;
@@ -32,6 +38,8 @@ public class UpdateHandler
         SessionStore sessionStore,
         MessageFormatter formatter,
         PermissionService permissionService,
+        WhisperService whisperService,
+        PromptOptimizer promptOptimizer,
         BotMessages msg,
         IOptions<TelegramSettings> telegramSettings,
         ILogger<UpdateHandler> logger)
@@ -41,6 +49,8 @@ public class UpdateHandler
         _sessionStore = sessionStore;
         _formatter = formatter;
         _permissionService = permissionService;
+        _whisperService = whisperService;
+        _promptOptimizer = promptOptimizer;
         _msg = msg;
         _telegramSettings = telegramSettings.Value;
         _logger = logger;
@@ -65,7 +75,31 @@ public class UpdateHandler
         if (update.CallbackQuery is { } callback)
         {
             if (IsAuthorized(callback.From.Id, callback.From.Username))
+            {
+                // Check if it's an audio callback
+                if (callback.Data?.StartsWith("audio:") == true)
+                {
+                    await HandleAudioCallbackAsync(bot, callback, ct);
+                    return;
+                }
+
                 await _commandHandler.HandleCallbackAsync(bot, callback, ct);
+            }
+            return;
+        }
+
+        // Handle voice/audio messages
+        if (update.Message is { Voice: { } voice } voiceMessage)
+        {
+            if (IsAuthorized(voiceMessage.From?.Id ?? 0, voiceMessage.From?.Username))
+                await HandleVoiceMessageAsync(bot, voiceMessage, voice, ct);
+            return;
+        }
+
+        if (update.Message is { Audio: { } audio } audioMessage)
+        {
+            if (IsAuthorized(audioMessage.From?.Id ?? 0, audioMessage.From?.Username))
+                await HandleAudioMessageAsync(bot, audioMessage, audio, ct);
             return;
         }
 
@@ -366,4 +400,217 @@ public class UpdateHandler
 
     private static string Esc(string text) =>
         text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    // ─── Audio Message Handlers ─────────────────────
+
+    private async Task HandleVoiceMessageAsync(
+        ITelegramBotClient bot, Message message, Voice voice, CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
+
+        if (!_whisperService.IsAvailable)
+        {
+            await bot.SendMessage(chatId, _msg.AudioNotAvailable, cancellationToken: ct);
+            return;
+        }
+
+        // Check duration
+        if (!_whisperService.IsValidDuration(voice.Duration))
+        {
+            await bot.SendMessage(chatId,
+                $"{_msg.AudioTooLong}: {_whisperService.MaxDurationSeconds} soniya.",
+                cancellationToken: ct);
+            return;
+        }
+
+        await ProcessAudioAsync(bot, chatId, message.From?.Id ?? 0, voice.FileId, ct);
+    }
+
+    private async Task HandleAudioMessageAsync(
+        ITelegramBotClient bot, Message message, Audio audio, CancellationToken ct)
+    {
+        var chatId = message.Chat.Id;
+
+        if (!_whisperService.IsAvailable)
+        {
+            await bot.SendMessage(chatId, _msg.AudioNotAvailable, cancellationToken: ct);
+            return;
+        }
+
+        // Check duration
+        if (!_whisperService.IsValidDuration(audio.Duration))
+        {
+            await bot.SendMessage(chatId,
+                $"{_msg.AudioTooLong}: {_whisperService.MaxDurationSeconds} soniya.",
+                cancellationToken: ct);
+            return;
+        }
+
+        await ProcessAudioAsync(bot, chatId, message.From?.Id ?? 0, audio.FileId, ct);
+    }
+
+    private async Task ProcessAudioAsync(
+        ITelegramBotClient bot, long chatId, long userId, string fileId, CancellationToken ct)
+    {
+        var statusMsg = await bot.SendMessage(chatId,
+            $"⏳ <i>{_msg.AudioProcessing}</i>",
+            parseMode: ParseMode.Html, cancellationToken: ct);
+
+        string? tempFilePath = null;
+        try
+        {
+            // Download audio file
+            var file = await bot.GetFile(fileId, cancellationToken: ct);
+            if (file.FilePath == null)
+            {
+                await bot.EditMessageText(chatId, statusMsg.MessageId,
+                    _msg.AudioTranscriptionFailed, cancellationToken: ct);
+                return;
+            }
+
+            // Save to temp file
+            tempFilePath = Path.Combine(Path.GetTempPath(), $"rclaude_audio_{Guid.NewGuid()}.ogg");
+            await using (var fileStream = System.IO.File.Create(tempFilePath))
+            {
+                await bot.DownloadFile(file.FilePath, fileStream, cancellationToken: ct);
+            }
+
+            // Transcribe with Whisper
+            var transcription = await _whisperService.TranscribeAsync(tempFilePath, ct);
+            if (string.IsNullOrWhiteSpace(transcription))
+            {
+                await bot.EditMessageText(chatId, statusMsg.MessageId,
+                    _msg.AudioTranscriptionFailed, cancellationToken: ct);
+                return;
+            }
+
+            // Optimize prompt with GPT
+            string optimizedPrompt;
+            if (_promptOptimizer.IsAvailable)
+            {
+                optimizedPrompt = await _promptOptimizer.OptimizeAsync(transcription, ct)
+                                  ?? transcription;
+            }
+            else
+            {
+                optimizedPrompt = transcription;
+            }
+
+            // Show confirmation dialog
+            var callbackId = Guid.NewGuid().ToString("N");
+            _pendingAudioPrompts[callbackId] = optimizedPrompt;
+
+            var keyboard = new InlineKeyboardMarkup(new[]
+            {
+                InlineKeyboardButton.WithCallbackData(_msg.AudioBtnSend, $"audio:send:{callbackId}"),
+                InlineKeyboardButton.WithCallbackData(_msg.AudioBtnCancel, $"audio:cancel:{callbackId}")
+            });
+
+            var displayText = $"<b>{_msg.AudioTranscribed}:</b>\n<code>{Esc(transcription)}</code>";
+
+            if (optimizedPrompt != transcription && _promptOptimizer.IsAvailable)
+            {
+                displayText += $"\n\n<b>{_msg.AudioOptimized}:</b>\n<code>{Esc(optimizedPrompt)}</code>";
+            }
+
+            displayText += $"\n\n{_msg.AudioSendConfirm}";
+
+            await bot.EditMessageText(chatId, statusMsg.MessageId, displayText,
+                parseMode: ParseMode.Html, replyMarkup: keyboard, cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing audio for user {UserId}", userId);
+            await bot.EditMessageText(chatId, statusMsg.MessageId,
+                $"{_msg.ErrorOccurred}: {ex.Message}", cancellationToken: ct);
+        }
+        finally
+        {
+            // Clean up temp file
+            if (tempFilePath != null && System.IO.File.Exists(tempFilePath))
+            {
+                try { System.IO.File.Delete(tempFilePath); }
+                catch { }
+            }
+        }
+    }
+
+    private async Task HandleAudioCallbackAsync(
+        ITelegramBotClient bot, CallbackQuery callback, CancellationToken ct)
+    {
+        var data = callback.Data;
+        var userId = callback.From.Id;
+        var chatId = callback.Message?.Chat.Id ?? 0;
+
+        if (data == null || chatId == 0) return;
+
+        var parts = data.Split(':', 3);
+        if (parts.Length != 3) return;
+
+        var action = parts[1]; // "send" or "cancel"
+        var callbackId = parts[2];
+
+        if (!_pendingAudioPrompts.TryGetValue(callbackId, out var prompt))
+        {
+            await bot.AnswerCallbackQuery(callback.Id, "Prompt expired", cancellationToken: ct);
+            return;
+        }
+
+        // Remove from pending
+        _pendingAudioPrompts.Remove(callbackId);
+
+        if (action == "cancel")
+        {
+            await bot.EditMessageText(chatId, callback.Message!.MessageId,
+                $"<i>{_msg.AudioCancelled}</i>",
+                parseMode: ParseMode.Html, cancellationToken: ct);
+            await bot.AnswerCallbackQuery(callback.Id, _msg.AudioCancelled, cancellationToken: ct);
+            return;
+        }
+
+        if (action == "send")
+        {
+            // Remove confirmation message
+            try
+            {
+                await bot.DeleteMessage(chatId, callback.Message!.MessageId, cancellationToken: ct);
+            }
+            catch { }
+
+            await bot.AnswerCallbackQuery(callback.Id, "✅", cancellationToken: ct);
+
+            // Load session and process
+            var session = await _sessionStore.GetOrCreateAsync(userId);
+
+            if (session.WorkingDirectory == null)
+            {
+                await bot.SendMessage(chatId, _msg.SetDirFirst,
+                    parseMode: ParseMode.Html, cancellationToken: ct);
+                return;
+            }
+
+            // Per-user lock
+            var userLock = _sessionStore.GetLock(userId);
+            if (!await userLock.WaitAsync(0, ct))
+            {
+                await bot.SendMessage(chatId, _msg.RequestInProgress, cancellationToken: ct);
+                return;
+            }
+
+            try
+            {
+                await ProcessWithStreaming(bot, chatId, prompt, session, ct);
+                await _sessionStore.SaveSessionAsync(session);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing audio prompt from {UserId}", userId);
+                await bot.SendMessage(chatId, $"{_msg.ErrorOccurred}: {ex.Message}", cancellationToken: ct);
+            }
+            finally
+            {
+                userLock.Release();
+            }
+        }
+    }
 }

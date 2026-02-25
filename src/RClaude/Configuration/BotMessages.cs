@@ -54,6 +54,18 @@ public class BotMessages
     public string InvalidModel { get; init; } = "";
     public string ModelChanged { get; init; } = "";
 
+    // ─── Audio ──────────────────────────────────────
+    public string AudioProcessing { get; init; } = "";
+    public string AudioTranscribed { get; init; } = "";
+    public string AudioOptimized { get; init; } = "";
+    public string AudioSendConfirm { get; init; } = "";
+    public string AudioBtnSend { get; init; } = "";
+    public string AudioBtnCancel { get; init; } = "";
+    public string AudioCancelled { get; init; } = "";
+    public string AudioTooLong { get; init; } = "";
+    public string AudioTranscriptionFailed { get; init; } = "";
+    public string AudioNotAvailable { get; init; } = "";
+
     // ─── Factory ────────────────────────────────────
     public static BotMessages Create(string lang) => lang switch
     {
@@ -142,7 +154,17 @@ public class BotMessages
         ContextCleared = "Context tozalandi. Yangi suhbat boshlandi.",
         ModelUsage = "Foydalanish: /model &lt;name&gt;\n\nMavjud: <b>sonnet</b>, <b>opus</b>, <b>haiku</b>",
         InvalidModel = "Noto'g'ri model",
-        ModelChanged = "Model o'zgartirildi"
+        ModelChanged = "Model o'zgartirildi",
+        AudioProcessing = "🎤 Audio qayta ishlanmoqda...",
+        AudioTranscribed = "📝 Matn",
+        AudioOptimized = "✨ Optimizatsiya qilingan prompt",
+        AudioSendConfirm = "Promptni Claude Code ga jo'natamizmi?",
+        AudioBtnSend = "✅ Jo'natish",
+        AudioBtnCancel = "❌ Bekor qilish",
+        AudioCancelled = "Bekor qilindi",
+        AudioTooLong = "⚠️ Audio juda uzun! Maksimal davomiylik",
+        AudioTranscriptionFailed = "❌ Audio matnini tanib bo'lmadi",
+        AudioNotAvailable = "🎤 Audio qayta ishlash mavjud emas. OpenAI API key sozlanmagan."
     };
 
     private static BotMessages English() => new()
@@ -225,7 +247,17 @@ public class BotMessages
         ContextCleared = "Context cleared. New conversation started.",
         ModelUsage = "Usage: /model &lt;name&gt;\n\nAvailable: <b>sonnet</b>, <b>opus</b>, <b>haiku</b>",
         InvalidModel = "Invalid model",
-        ModelChanged = "Model changed"
+        ModelChanged = "Model changed",
+        AudioProcessing = "🎤 Processing audio...",
+        AudioTranscribed = "📝 Text",
+        AudioOptimized = "✨ Optimized prompt",
+        AudioSendConfirm = "Send this prompt to Claude Code?",
+        AudioBtnSend = "✅ Send",
+        AudioBtnCancel = "❌ Cancel",
+        AudioCancelled = "Cancelled",
+        AudioTooLong = "⚠️ Audio too long! Maximum duration",
+        AudioTranscriptionFailed = "❌ Failed to transcribe audio",
+        AudioNotAvailable = "🎤 Audio processing unavailable. OpenAI API key not configured."
     };
 
     private static BotMessages Russian() => new()
@@ -308,6 +340,16 @@ public class BotMessages
         ContextCleared = "Контекст очищен. Новый диалог начат.",
         ModelUsage = "Использование: /model &lt;name&gt;\n\nДоступны: <b>sonnet</b>, <b>opus</b>, <b>haiku</b>",
         InvalidModel = "Неверная модель",
-        ModelChanged = "Модель изменена"
+        ModelChanged = "Модель изменена",
+        AudioProcessing = "🎤 Обработка аудио...",
+        AudioTranscribed = "📝 Текст",
+        AudioOptimized = "✨ Оптимизированный промпт",
+        AudioSendConfirm = "Отправить этот промпт в Claude Code?",
+        AudioBtnSend = "✅ Отправить",
+        AudioBtnCancel = "❌ Отменить",
+        AudioCancelled = "Отменено",
+        AudioTooLong = "⚠️ Аудио слишком длинное! Максимальная длительность",
+        AudioTranscriptionFailed = "❌ Не удалось расшифровать аудио",
+        AudioNotAvailable = "🎤 Обработка аудио недоступна. OpenAI API ключ не настроен."
     };
 }

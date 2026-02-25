@@ -105,6 +105,11 @@ case "$LANG_CHOICE" in
         MSG_PERM_SELECT="Permission mode"
         MSG_PERM_FULL="Full Access (all tools auto-approved)"
         MSG_PERM_ASK="Ask Permission (Bash/Write/Edit require approval via Telegram)"
+        MSG_OPENAI_HINT="OpenAI API key for audio messages (optional)"
+        MSG_OPENAI_HINT_DESC="If provided, bot will process voice messages with Whisper STT and optimize prompts with GPT."
+        MSG_OPENAI_PROMPT="OpenAI API key (press Enter to skip)"
+        MSG_OPENAI_SKIPPED="Audio processing disabled (no API key)"
+        MSG_OPENAI_ENABLED="Audio processing enabled"
         MSG_CLAUDE_INSTALLING="Claude Code CLI not found. Installing via npm..."
         MSG_NPM_NOT_FOUND="npm not found! Install Node.js: https://nodejs.org"
         MSG_NODEJS_INSTALLING="Installing Node.js..."
@@ -183,6 +188,11 @@ case "$LANG_CHOICE" in
         MSG_PERM_SELECT="Режим разрешений"
         MSG_PERM_FULL="Полный доступ (все инструменты авто-одобрены)"
         MSG_PERM_ASK="Запрашивать (Bash/Write/Edit требуют одобрения через Telegram)"
+        MSG_OPENAI_HINT="OpenAI API ключ для голосовых сообщений (опционально)"
+        MSG_OPENAI_HINT_DESC="Если указан, бот будет обрабатывать голосовые сообщения с помощью Whisper STT и оптимизировать промпты с помощью GPT."
+        MSG_OPENAI_PROMPT="OpenAI API ключ (Enter чтобы пропустить)"
+        MSG_OPENAI_SKIPPED="Обработка аудио отключена (нет API ключа)"
+        MSG_OPENAI_ENABLED="Обработка аудио включена"
         MSG_CLAUDE_INSTALLING="Claude Code CLI не найден. Установка через npm..."
         MSG_NPM_NOT_FOUND="npm не найден! Установите Node.js: https://nodejs.org"
         MSG_NODEJS_INSTALLING="Устанавливаем Node.js..."
@@ -261,6 +271,11 @@ case "$LANG_CHOICE" in
         MSG_PERM_SELECT="Ruxsat rejimi"
         MSG_PERM_FULL="To'liq kirish (barcha toollar avtomatik ruxsat)"
         MSG_PERM_ASK="So'rash (Bash/Write/Edit uchun Telegram orqali ruxsat so'raydi)"
+        MSG_OPENAI_HINT="Audio xabarlar uchun OpenAI API key (ixtiyoriy)"
+        MSG_OPENAI_HINT_DESC="Agar kiritilsa, bot ovozli xabarlarni Whisper STT bilan taniydi va promptlarni GPT bilan optimizatsiya qiladi."
+        MSG_OPENAI_PROMPT="OpenAI API key (o'tkazib yuborish uchun Enter)"
+        MSG_OPENAI_SKIPPED="Audio qayta ishlash o'chirilgan (API key yo'q)"
+        MSG_OPENAI_ENABLED="Audio qayta ishlash yoqilgan"
         MSG_CLAUDE_INSTALLING="Claude Code CLI topilmadi. npm orqali o'rnatilmoqda..."
         MSG_NPM_NOT_FOUND="npm topilmadi! Node.js ni o'rnating: https://nodejs.org"
         MSG_NODEJS_INSTALLING="Node.js o'rnatilmoqda..."
@@ -462,6 +477,19 @@ else
         exit 1
     fi
 
+    # OpenAI API Key (optional)
+    echo ""
+    echo -e "  ${YELLOW}$MSG_OPENAI_HINT${NC}"
+    echo -e "  ${GRAY}$MSG_OPENAI_HINT_DESC${NC}"
+    echo ""
+    read -p "  $MSG_OPENAI_PROMPT: " OPENAI_KEY
+
+    if [ -n "$OPENAI_KEY" ]; then
+        echo -e "  ${GREEN}$MSG_OPENAI_ENABLED${NC}"
+    else
+        echo -e "  ${GRAY}$MSG_OPENAI_SKIPPED${NC}"
+    fi
+
     # Permission mode
     echo ""
     echo -e "  ${YELLOW}$MSG_PERM_SELECT:${NC}"
@@ -557,12 +585,21 @@ if [ "$MODE" != "upgrade" ]; then
         *) BOT_LANG="uz" ;;
     esac
 
-    dotnet "$INSTALL_DIR/app/RClaude.dll" --init-db \
-        --bot-token "$BOT_TOKEN" \
-        --username "$TG_USERNAME" \
-        --claude-path "$CLAUDE_BIN" \
-        --permission-mode "$PERMISSION_MODE" \
-        --language "$BOT_LANG"
+    INIT_ARGS=(
+        "$INSTALL_DIR/app/RClaude.dll"
+        "--init-db"
+        "--bot-token" "$BOT_TOKEN"
+        "--username" "$TG_USERNAME"
+        "--claude-path" "$CLAUDE_BIN"
+        "--permission-mode" "$PERMISSION_MODE"
+        "--language" "$BOT_LANG"
+    )
+
+    if [ -n "$OPENAI_KEY" ]; then
+        INIT_ARGS+=("--openai-key" "$OPENAI_KEY")
+    fi
+
+    dotnet "${INIT_ARGS[@]}"
     echo -e "  ${GREEN}✓${NC} $MSG_SETTINGS_SAVED"
 else
     # Upgrade — only update Claude CLI path

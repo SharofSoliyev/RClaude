@@ -97,6 +97,11 @@ switch ($LANG_CHOICE) {
         $msg.PERM_SELECT = "Permission mode"
         $msg.PERM_FULL = "Full Access (all tools auto-approved)"
         $msg.PERM_ASK = "Ask Permission (Bash/Write/Edit require approval via Telegram)"
+        $msg.OPENAI_HINT = "OpenAI API key for audio messages (optional)"
+        $msg.OPENAI_HINT_DESC = "If provided, bot will process voice messages with Whisper STT and optimize prompts with GPT."
+        $msg.OPENAI_PROMPT = "OpenAI API key (press Enter to skip)"
+        $msg.OPENAI_SKIPPED = "Audio processing disabled (no API key)"
+        $msg.OPENAI_ENABLED = "Audio processing enabled"
     }
     "3" {
         $msg.CHECKING = "Проверка..."
@@ -166,6 +171,11 @@ switch ($LANG_CHOICE) {
         $msg.PERM_SELECT = "Режим разрешений"
         $msg.PERM_FULL = "Полный доступ (все инструменты авто-одобрены)"
         $msg.PERM_ASK = "Запрашивать (Bash/Write/Edit требуют одобрения через Telegram)"
+        $msg.OPENAI_HINT = "OpenAI API ключ для голосовых сообщений (опционально)"
+        $msg.OPENAI_HINT_DESC = "Если указан, бот будет обрабатывать голосовые сообщения с помощью Whisper STT и оптимизировать промпты с помощью GPT."
+        $msg.OPENAI_PROMPT = "OpenAI API ключ (Enter чтобы пропустить)"
+        $msg.OPENAI_SKIPPED = "Обработка аудио отключена (нет API ключа)"
+        $msg.OPENAI_ENABLED = "Обработка аудио включена"
     }
     default {
         $msg.CHECKING = "Tekshirilmoqda..."
@@ -235,6 +245,11 @@ switch ($LANG_CHOICE) {
         $msg.PERM_SELECT = "Ruxsat rejimi"
         $msg.PERM_FULL = "To'liq kirish (barcha toollar avtomatik ruxsat)"
         $msg.PERM_ASK = "So'rash (Bash/Write/Edit uchun Telegram orqali ruxsat so'raydi)"
+        $msg.OPENAI_HINT = "Audio xabarlar uchun OpenAI API key (ixtiyoriy)"
+        $msg.OPENAI_HINT_DESC = "Agar kiritilsa, bot ovozli xabarlarni Whisper STT bilan taniydi va promptlarni GPT bilan optimizatsiya qiladi."
+        $msg.OPENAI_PROMPT = "OpenAI API key (o'tkazib yuborish uchun Enter)"
+        $msg.OPENAI_SKIPPED = "Audio qayta ishlash o'chirilgan (API key yo'q)"
+        $msg.OPENAI_ENABLED = "Audio qayta ishlash yoqilgan"
     }
 }
 
@@ -434,6 +449,19 @@ if ($MODE -eq "upgrade") {
         exit 1
     }
 
+    # OpenAI API Key (optional)
+    Write-Host ""
+    Write-Host "  $($msg.OPENAI_HINT)" -ForegroundColor Yellow
+    Write-Host "  $($msg.OPENAI_HINT_DESC)" -ForegroundColor Gray
+    Write-Host ""
+    $OPENAI_KEY = Read-Host "  $($msg.OPENAI_PROMPT)"
+
+    if ($OPENAI_KEY) {
+        Write-Host "  $($msg.OPENAI_ENABLED)" -ForegroundColor Green
+    } else {
+        Write-Host "  $($msg.OPENAI_SKIPPED)" -ForegroundColor Gray
+    }
+
     # Permission mode
     Write-Host ""
     Write-Host "  $($msg.PERM_SELECT):" -ForegroundColor Yellow
@@ -528,6 +556,11 @@ if ($MODE -ne "upgrade") {
         "--permission-mode", $PERMISSION_MODE,
         "--language", $BOT_LANG
     )
+
+    if ($OPENAI_KEY) {
+        $initArgs += "--openai-key"
+        $initArgs += $OPENAI_KEY
+    }
     dotnet @initArgs 2>$null
     Write-Host "  [OK] $($msg.SETTINGS_SAVED)" -ForegroundColor Green
 } else {
