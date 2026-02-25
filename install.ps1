@@ -1,4 +1,4 @@
-# ═══════════════════════════════════════════════════
+﻿# ═══════════════════════════════════════════════════
 #  RClaude Installer — Windows (PowerShell)
 #  Claude Code AI Agent via Telegram
 # ═══════════════════════════════════════════════════
@@ -43,7 +43,7 @@ switch ($LANG_CHOICE) {
         $msg.CLAUDE_INSTALLED = "Claude Code installed"
         $msg.CLAUDE_LOGIN = "Log in to your Claude account:"
         $msg.CLAUDE_INSTALL_FAILED = "Claude Code installation failed!"
-        $msg.CLAUDE_INSTALL_MANUAL = "Run manually: npm install -g @anthropic-ai/claude-code"
+        $msg.CLAUDE_INSTALL_MANUAL = "Run manually: npm install -g `@anthropic-ai/claude-code"
         $msg.ALREADY_INSTALLED = "RClaude is already installed: $INSTALL_DIR"
         $msg.OPT_UPDATE = "Update (settings preserved)"
         $msg.OPT_REINSTALL = "Reinstall (settings cleared)"
@@ -57,7 +57,7 @@ switch ($LANG_CHOICE) {
         $msg.PATH_REMOVED = "Removed from PATH"
         $msg.UNINSTALL_DONE = "RClaude successfully uninstalled!"
         $msg.TG_SETTINGS = "Telegram Bot settings"
-        $msg.TG_TOKEN_HINT = "Enter bot token from @BotFather."
+        $msg.TG_TOKEN_HINT = "Enter bot token from `@BotFather."
         $msg.TG_TOKEN_EXAMPLE = "(Example: 123456789:AABBccddEEff...)"
         $msg.TG_TOKEN_PROMPT = "Bot Token"
         $msg.TG_TOKEN_EMPTY = "ERROR: Token not provided"
@@ -112,7 +112,7 @@ switch ($LANG_CHOICE) {
         $msg.CLAUDE_INSTALLED = "Claude Code установлен"
         $msg.CLAUDE_LOGIN = "Войдите в аккаунт Claude:"
         $msg.CLAUDE_INSTALL_FAILED = "Не удалось установить Claude Code!"
-        $msg.CLAUDE_INSTALL_MANUAL = "Установите вручную: npm install -g @anthropic-ai/claude-code"
+        $msg.CLAUDE_INSTALL_MANUAL = "Установите вручную: npm install -g `@anthropic-ai/claude-code"
         $msg.ALREADY_INSTALLED = "RClaude уже установлен: $INSTALL_DIR"
         $msg.OPT_UPDATE = "Обновить (настройки сохранятся)"
         $msg.OPT_REINSTALL = "Переустановить (настройки очистятся)"
@@ -126,7 +126,7 @@ switch ($LANG_CHOICE) {
         $msg.PATH_REMOVED = "Удалено из PATH"
         $msg.UNINSTALL_DONE = "RClaude успешно удалён!"
         $msg.TG_SETTINGS = "Настройки Telegram бота"
-        $msg.TG_TOKEN_HINT = "Введите токен бота от @BotFather."
+        $msg.TG_TOKEN_HINT = "Введите токен бота от `@BotFather."
         $msg.TG_TOKEN_EXAMPLE = "(Пример: 123456789:AABBccddEEff...)"
         $msg.TG_TOKEN_PROMPT = "Токен бота"
         $msg.TG_TOKEN_EMPTY = "ОШИБКА: Токен не введён"
@@ -181,7 +181,7 @@ switch ($LANG_CHOICE) {
         $msg.CLAUDE_INSTALLED = "Claude Code o'rnatildi"
         $msg.CLAUDE_LOGIN = "Claude hisobingizga kiring:"
         $msg.CLAUDE_INSTALL_FAILED = "Claude Code o'rnatib bo'lmadi!"
-        $msg.CLAUDE_INSTALL_MANUAL = "Qo'lda o'rnating: npm install -g @anthropic-ai/claude-code"
+        $msg.CLAUDE_INSTALL_MANUAL = "Qo'lda o'rnating: npm install -g `@anthropic-ai/claude-code"
         $msg.ALREADY_INSTALLED = "RClaude allaqachon o'rnatilgan: $INSTALL_DIR"
         $msg.OPT_UPDATE = "Yangilash (sozlamalar saqlanadi)"
         $msg.OPT_REINSTALL = "Qayta o'rnatish (sozlamalar tozalanadi)"
@@ -195,7 +195,7 @@ switch ($LANG_CHOICE) {
         $msg.PATH_REMOVED = "PATH dan olib tashlandi"
         $msg.UNINSTALL_DONE = "RClaude muvaffaqiyatli o'chirildi!"
         $msg.TG_SETTINGS = "Telegram Bot sozlamalari"
-        $msg.TG_TOKEN_HINT = "@BotFather dan olingan bot token ni kiriting."
+        $msg.TG_TOKEN_HINT = "`@BotFather dan olingan bot token ni kiriting."
         $msg.TG_TOKEN_EXAMPLE = "(Masalan: 123456789:AABBccddEEff...)"
         $msg.TG_TOKEN_PROMPT = "Bot Token"
         $msg.TG_TOKEN_EMPTY = "XATO: Token kiritilmadi"
